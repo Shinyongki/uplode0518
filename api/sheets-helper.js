@@ -179,10 +179,58 @@ async function appendRow(options) {
   }
 }
 
+/**
+ * 시트 데이터 읽기
+ * @param {string} sheetName 시트 이름
+ * @param {string} range 범위 (선택적, 기본값: 전체 시트)
+ * @returns {Promise<Array>} 시트 데이터 행 배열
+ */
+async function readSheet(sheetName, range = '') {
+  try {
+    console.log(`[sheets-helper] ${sheetName} 시트 데이터 읽기 시도`);
+    
+    // 인증 클라이언트 가져오기
+    const authClient = await getAuthClient();
+    
+    // 구글 시트 API 초기화
+    const sheets = google.sheets({ version: 'v4', auth: authClient });
+    
+    // 시트 데이터 가져오기
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: range ? `${sheetName}!${range}` : sheetName
+    });
+    
+    const rows = response.data.values || [];
+    console.log(`[sheets-helper] ${sheetName} 시트에서 ${rows.length}개 행 데이터 읽기 성공`);
+    
+    return rows;
+  } catch (error) {
+    console.error(`[sheets-helper] ${sheetName} 시트 데이터 읽기 오류:`, error);
+    throw error;
+  }
+}
+
+/**
+ * 구글 시트 객체 가져오기
+ * @returns {Promise<Object>} 구글 시트 API 객체
+ */
+async function getSheets() {
+  try {
+    const authClient = await getAuthClient();
+    return google.sheets({ version: 'v4', auth: authClient });
+  } catch (error) {
+    console.error('[sheets-helper] 구글 시트 객체 가져오기 오류:', error);
+    throw error;
+  }
+}
+
 // 모듈 내보내기
 module.exports = {
   getAuthClient,
-  appendRow
+  appendRow,
+  readSheet,
+  getSheets
 };
 
 /**
