@@ -8,12 +8,13 @@ const USE_SERVICE_ACCOUNT = true; // 항상 서비스 계정 사용
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID || '11eWVWRY2cTU5nat3zsTSTjvhvk-LxhistC1LmfBNvPU';
 
 // 서비스 계정 키 가져오기 (환경변수 또는 파일)
-const SERVICE_ACCOUNT_KEY = process.env.SERVICE_ACCOUNT_KEY;
-const SERVICE_ACCOUNT_KEY_PATH = process.env.SERVICE_ACCOUNT_KEY_PATH || path.join(__dirname, '..', 'service-account.json');
+let serviceAccountKeyPath = process.env.SERVICE_ACCOUNT_KEY_PATH || path.join(__dirname, '..', 'service-account.json');
+const hasServiceAccountKeyEnv = !!process.env.SERVICE_ACCOUNT_KEY;
+const hasServiceAccountKeyFile = fs.existsSync(serviceAccountKeyPath);
 
 console.log('[sheets-helper] 스프레드시트 ID:', SPREADSHEET_ID);
-console.log('[sheets-helper] 서비스 계정 키 환경변수 존재 여부:', !!SERVICE_ACCOUNT_KEY);
-console.log('[sheets-helper] 서비스 계정 키 경로 존재 여부:', fs.existsSync(SERVICE_ACCOUNT_KEY_PATH));
+console.log('[sheets-helper] 서비스 계정 키 환경변수 존재 여부:', hasServiceAccountKeyEnv);
+console.log('[sheets-helper] 서비스 계정 키 경로 존재 여부:', hasServiceAccountKeyFile);
 
 /**
  * 인증 클라이언트 가져오기
@@ -26,21 +27,43 @@ async function getAuthClient() {
     // 서비스 계정 인증 사용
     let auth;
     
-    if (SERVICE_ACCOUNT_KEY) {
-      // 환경변수에서 서비스 계정 키 사용 (Vercel 환경에 적합)
-      console.log('[sheets-helper] 환경변수에서 서비스 계정 키 사용');
-      const credentials = JSON.parse(SERVICE_ACCOUNT_KEY);
+    if (hasServiceAccountKeyEnv) {
+      // 환경 변수에서 서비스 계정 키 가져오기 (Vercel 환경용)
+      try {
+        // 환경 변수에서 가져온 JSON 문자열을 안전하게 파싱
+        let serviceAccountKey;
+        try {
+          serviceAccountKey = JSON.parse(process.env.SERVICE_ACCOUNT_KEY);
+        } catch (jsonError) {
+          console.log('일반 JSON 파싱 실패, 특수 문자 처리 시도...');
+          // 특수 문자나 줄바꿈이 있을 수 있으므로 추가 처리
+          const cleanedJson = process.env.SERVICE_ACCOUNT_KEY
+            .replace(/\\n/g, '')
+            .replace(/\n/g, '')
+            .replace(/\r/g, '')
+            .trim();
+          serviceAccountKey = JSON.parse(cleanedJson);
+        }
+        
+        // 인증 객체 생성
+        auth = new google.auth.GoogleAuth({
+          credentials: serviceAccountKey,
+          scopes: ['https://www.googleapis.com/auth/spreadsheets']
+        });
+        console.log('환경 변수에서 서비스 계정 키 가져오기 성공');
+      } catch (parseError) {
+        console.error('서비스 계정 키 JSON 파싱 오류:', parseError);
+        throw new Error('서비스 계정 키 파싱 오류: ' + parseError.message);
+      }
+    } else if (hasServiceAccountKeyFile) {
+      // 파일에서 서비스 계정 키 가져오기 (로컬 개발환경용)
       auth = new google.auth.GoogleAuth({
-        credentials,
-        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+        keyFile: serviceAccountKeyPath,
+        scopes: ['https://www.googleapis.com/auth/spreadsheets']
       });
+      console.log('파일에서 서비스 계정 키 가져오기 성공');
     } else {
-      // 파일에서 서비스 계정 키 사용 (로컬 개발 환경에 적합)
-      console.log('[sheets-helper] 파일에서 서비스 계정 키 사용');
-      auth = new google.auth.GoogleAuth({
-        keyFile: SERVICE_ACCOUNT_KEY_PATH,
-        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-      });
+      throw new Error('서비스 계정 키를 찾을 수 없습니다.');
     }
     
     const authClient = await auth.getClient();
