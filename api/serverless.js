@@ -954,10 +954,142 @@ app.get('/api/sheets/committee-orgs', async (req, res) => {
   }
 });
 
+// 위원별 담당 기관 API 엔드포인트
+app.get('/api/sheets/committee-orgs', async (req, res) => {
+  try {
+    console.log('[API] /api/sheets/committee-orgs 요청 받음');
+    const { committeeName } = req.query;
+    console.log(`위원 이름: ${committeeName || '지정되지 않음'}`);
+    
+    // 구글 시트에서 위원별 담당 기관 데이터 가져오기
+    try {
+      const matchingData = await sheetsHelper.readSheet('위원별_담당기관');
+      console.log(`[API] 위원별 담당기관 데이터 ${matchingData.length}개 행 로드 완료`);
+      
+      // 헤더 행 제외하고 위원 이름으로 필터링 (committeeName이 제공된 경우)
+      let filteredData = matchingData.slice(1);
+      if (committeeName) {
+        filteredData = filteredData.filter(row => row[1] === committeeName);
+        console.log(`[API] ${committeeName} 위원 담당 기관 ${filteredData.length}개 필터링 완료`);
+      }
+      
+      // 데이터 변환
+      const result = filteredData.map((row, index) => {
+        return {
+          id: `M${index + 1}`,
+          committeeId: row[0] || '',    // 위원ID
+          committeeName: row[1] || '',  // 위원명
+          orgId: row[2] || '',          // 기관ID
+          orgCode: row[3] || '',        // 기관코드
+          orgName: row[4] || '',        // 기관명
+          region: row[5] || '',         // 지역
+          role: row[6] || '',           // 담당구분
+          status: row[7] || ''          // 상태
+        };
+      });
+      
+      // 성공 응답
+      res.status(200).json({
+        status: 'success',
+        data: result
+      });
+    } catch (sheetError) {
+      console.error('구글 시트에서 위원별 담당 기관 데이터 가져오기 실패:', sheetError);
+      
+      // 실패 시 하드코딩된 데이터 사용
+      console.log('하드코딩된 위원별 담당 기관 데이터 사용');
+      
+      // 하드코딩된 데이터에서 위원 이름으로 필터링
+      let filteredData = committeeOrgData.slice(1);
+      if (committeeName) {
+        filteredData = filteredData.filter(row => row[1] === committeeName);
+      }
+      
+      // 데이터 변환
+      const result = filteredData.map((row, index) => {
+        return {
+          id: `M${index + 1}`,
+          committeeId: row[0] || '',    // 위원ID
+          committeeName: row[1] || '',  // 위원명
+          orgId: row[2] || '',          // 기관ID
+          orgCode: row[3] || '',        // 기관코드
+          orgName: row[4] || '',        // 기관명
+          region: row[5] || '',         // 지역
+          role: row[6] || '',           // 담당구분
+          status: row[7] || ''          // 상태
+        };
+      });
+      
+      res.status(200).json({
+        status: 'success',
+        data: result
+      });
+    }
+  } catch (error) {
+    console.error('위원별 담당 기관 API 오류:', error);
+    res.status(500).json({
+      status: 'error',
+      message: '서버 오류가 발생했습니다.',
+      error: error.message
+    });
+  }
+});
+
 // 일정 API 엔드포인트 (기존 /api/schedules 경로 지원)
 app.get('/api/schedules', async (req, res) => {
   try {
     console.log('[API] /api/schedules 요청 받음');
+    
+    // 구글 시트에서 일정 데이터 가져오기
+    try {
+      const scheduleData = await sheetsHelper.readSheet('일정');
+      console.log(`[API] 일정 데이터 ${scheduleData.length}개 행 로드 완료`);
+      
+      // 일정 데이터 변환
+      const schedules = scheduleData.slice(1).map((row, index) => {
+        return {
+          id: `S${index + 1}`,
+          date: row[0] || '',           // 날짜
+          committeeId: row[1] || '',    // 위원ID
+          committeeName: row[2] || '',  // 위원명
+          orgCode: row[3] || '',        // 기관코드
+          orgName: row[4] || '',        // 기관명
+          title: row[5] || '',          // 제목
+          description: row[6] || '',    // 설명
+          status: row[7] || '예정',      // 상태
+          createdAt: row[8] || new Date().toISOString() // 생성일시
+        };
+      });
+      
+      // 성공 응답
+      res.status(200).json({
+        status: 'success',
+        data: schedules
+      });
+    } catch (sheetError) {
+      console.error('구글 시트에서 일정 데이터 가져오기 실패:', sheetError);
+      
+      // 실패 시 빈 배열 반환
+      res.status(200).json({
+        status: 'success',
+        data: [],
+        message: '구글 시트에서 일정 데이터를 가져오지 못했습니다.'
+      });
+    }
+  } catch (error) {
+    console.error('일정 API 오류:', error);
+    res.status(500).json({
+      status: 'error',
+      message: '서버 오류가 발생했습니다.',
+      error: error.message
+    });
+  }
+});
+
+// 일정 API 엔드포인트 (시트 경로 지원)
+app.get('/api/sheets/schedules', async (req, res) => {
+  try {
+    console.log('[API] /api/sheets/schedules 요청 받음');
     
     // 구글 시트에서 일정 데이터 가져오기
     try {
