@@ -205,21 +205,44 @@ async function loadCommitteeMatchings() {
     }
     
     const data = await response.json();
+    console.log('[DEBUG] 받은 매칭 데이터 구조:', JSON.stringify(data).substring(0, 200) + '...');
     
-    // API 응답 형식 검사 - 직접 배열이거나 이전 형식(status+matchings) 모두 처리
+    // API 응답 형식 검사 - 다양한 응답 형식 처리
+    let matchings = [];
+    
+    // 1. 직접 배열인 경우
     if (Array.isArray(data)) {
-      // 직접 배열이 반환된 경우 (새 API 형식)
-      window.allMatchings = data;
-      console.log(`[DEBUG] 로드된 매칭 데이터: ${window.allMatchings.length}개`);
+      matchings = data;
+      console.log(`[DEBUG] 로드된 매칭 데이터(배열): ${matchings.length}개`);
+    }
+    // 2. {status, data} 형식인 경우
+    else if (data.status === 'success') {
+      // 2.1 data가 직접 배열인 경우
+      if (Array.isArray(data.data)) {
+        matchings = data.data;
+        console.log(`[DEBUG] 로드된 매칭 데이터(status+data): ${matchings.length}개`);
+      }
+      // 2.2 data.matchings가 배열인 경우
+      else if (data.data && Array.isArray(data.data.matchings)) {
+        matchings = data.data.matchings;
+        console.log(`[DEBUG] 로드된 매칭 데이터(status+data.matchings): ${matchings.length}개`);
+      }
+    }
+    // 3. {matchings} 형식인 경우
+    else if (data.matchings && Array.isArray(data.matchings)) {
+      matchings = data.matchings;
+      console.log(`[DEBUG] 로드된 매칭 데이터(matchings): ${matchings.length}개`);
+    }
+    
+    // 매칭 데이터 설정
+    if (matchings.length > 0) {
+      window.allMatchings = matchings;
       isLoadingMatchings = false;
       matchingsLoaded = true;
-      return true;
-    } else if (data.status === 'success' && Array.isArray(data.matchings)) {
-      // 이전 형식의 API 응답인 경우
-      window.allMatchings = data.matchings;
-      console.log(`[DEBUG] 로드된 매칭 데이터(이전 형식): ${window.allMatchings.length}개`);
-      isLoadingMatchings = false;
-      matchingsLoaded = true;
+      
+      // 매칭 데이터 로드 완료 이벤트 발생
+      const event = new CustomEvent('matchingsLoaded', { detail: { matchings: window.allMatchings } });
+      document.dispatchEvent(event);
       return true;
     } else {
       console.error('매칭 데이터가 올바른 형식이 아님:', data);
@@ -1036,8 +1059,19 @@ const renderCommitteeSchedules = () => {
         // 위원 이름이 없으면 건너뜀
         if (!match.committeeName) return;
         
-        // 역할 필드 값 처리 - 대소문자 및 공백 처리
-        const roleValue = (match.role || '').toString().trim().toLowerCase();
+        // 역할 필드 값 처리 - 다양한 필드명과 값 처리
+        let roleValue = '';
+        
+        // assignmentType 필드 확인 (서버에서 반환하는 필드)
+        if (match.assignmentType) {
+          roleValue = match.assignmentType.toString().trim().toLowerCase();
+        }
+        // role 필드 확인 (이전 버전 호환성)
+        else if (match.role) {
+          roleValue = match.role.toString().trim().toLowerCase();
+        }
+        
+        console.log(`[DEBUG] ${match.committeeName}의 담당 역할:`, roleValue, '기관:', match.orgName);
         
         // 역할에 따라 주담당/부담당 구분
         if (roleValue === '주담당' || roleValue === 'main' || roleValue === '주') {
