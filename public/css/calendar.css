@@ -1,0 +1,1016 @@
+/* 캘린더 스타일 - 개선된 버전 */
+.calendar-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  background-color: #f8f9fa;
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.calendar-nav {
+  display: flex;
+  align-items: center;
+}
+
+.calendar-nav h3 {
+  margin: 0 15px;
+  font-size: 1.5rem;
+  min-width: 150px;
+  text-align: center;
+  font-weight: 600;
+  color: #333;
+}
+
+.nav-btn {
+  background: none;
+  border: 1px solid #ddd;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: #555;
+}
+
+.nav-btn:hover {
+  background-color: #e9ecef;
+  border-color: #ced4da;
+  transform: scale(1.05);
+  color: #007bff;
+}
+
+.calendar-container {
+  background-color: #fff;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  margin-bottom: 30px;
+  padding: 15px;
+  border: 1px solid #e9ecef;
+}
+
+/* 달력 그리드 - 개선된 레이아웃 */
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  background-color: #e9ecef;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* 요일 헤더 - 가로로 배치 */
+.day-header {
+  padding: 8px 4px;
+  text-align: center;
+  font-weight: 600;
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+  color: #495057;
+  font-size: 12px;
+}
+
+/* 일요일 색상 */
+.day-header.sunday {
+  color: #dc3545;
+}
+
+/* 날짜 셀 스타일 */
+.date-cell {
+  min-height: 100px;
+  background-color: #fff;
+  padding: 5px;
+  position: relative;
+  transition: background-color 0.2s;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  cursor: pointer; /* 클릭 가능함을 나타내는 커서 */
+}
+
+.date-cell:hover {
+  background-color: #f8f9fa;
+}
+
+.date-cell.inactive {
+  background-color: #f5f5f5;
+}
+
+.date-cell.today {
+  background-color: #e8f4ff;
+  box-shadow: inset 0 0 0 2px #007bff;
+}
+
+/* 날짜 번호 스타일 */
+.date-number {
+  font-size: 12px;
+  font-weight: 600;
+  text-align: right;
+  margin-bottom: 4px;
+  color: #495057;
+  padding: 1px 3px;
+  border-radius: 3px;
+}
+
+.today .date-number {
+  color: #007bff;
+  background-color: #cfe2ff;
+  display: inline-block;
+  margin-left: auto;
+}
+
+.inactive .date-number {
+  color: #adb5bd;
+}
+
+.sunday .date-number {
+  color: #dc3545;
+}
+
+/* 일정 리스트 컨테이너 */
+.schedule-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+  margin-top: 2px;
+}
+
+/* 일정 표시 스타일 */
+.schedule-item {
+  background-color: rgba(227, 242, 253, 0.7); /* 배경색 투명도 적용 */
+  border-left: 2px solid #1976d2;
+  padding: 2px 3px; /* 여백 축소 */
+  font-size: 9px; /* 텍스트 크기 축소 */
+  margin-bottom: 1px; /* 마진 축소 */
+  border-radius: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  align-items: center;
+  line-height: 1.1; /* 줄간격 축소 */
+  transition: all 0.2s ease;
+  min-height: 14px; /* 최소 높이 설정 */
+  max-height: 16px; /* 최대 높이 제한 */
+}
+
+.schedule-item:hover {
+  background-color: #bbdefb;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* 일정 상태별 스타일 */
+.schedule-item.completed {
+  background-color: #e8f5e9;
+  border-left: 3px solid #4caf50;
+}
+
+.schedule-item.pending {
+  background-color: #fff8e1;
+  border-left: 3px solid #ffc107;
+}
+
+.schedule-item.canceled {
+  background-color: #ffebee;
+  border-left: 3px solid #f44336;
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+/* 일정 도트 표시 */
+.schedule-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: #1976d2;
+  margin-right: 3px;
+  flex-shrink: 0;
+}
+
+/* 일정 제목 스타일 */
+.schedule-title {
+  font-size: 9px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: calc(100% - 8px);
+}
+
+.schedule-item.completed .schedule-dot {
+  background-color: #4caf50;
+}
+
+.schedule-item.pending .schedule-dot {
+  background-color: #ffc107;
+}
+
+.schedule-item.canceled .schedule-dot {
+  background-color: #f44336;
+}
+
+/* 더보기 버튼 스타일 */
+.schedule-more {
+  text-align: center;
+  font-size: 9px;
+  color: #6c757d;
+  background-color: #f8f9fa;
+  border-radius: 10px;
+  padding: 1px 0;
+  margin-top: 2px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px dashed #dee2e6;
+}
+
+.schedule-more:hover {
+  background-color: #e9ecef;
+  color: #495057;
+  border-color: #ced4da;
+}
+
+.has-events {
+  position: relative;
+}
+
+.has-events::after {
+  content: '';
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #ff5722;
+}
+
+/* 반응형 처리 */
+@media (max-width: 768px) {
+  .calendar-grid {
+    padding: 0;
+  }
+  
+  .weekday {
+    padding: 5px;
+    font-size: 12px;
+  }
+  
+  .calendar-cell {
+    padding: 5px;
+    min-height: 80px;
+  }
+  
+  .date-num {
+    font-size: 12px;
+  }
+  
+  .modal-content {
+    margin: 5% auto;
+    width: 95%;
+    max-width: none;
+    padding: 15px;
+  }
+  
+  .form-row {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  #schedule-detail-modal .modal-content,
+  #schedule-form-modal .modal-content,
+  #schedules-list-modal .modal-content {
+    margin-top: 10%;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  
+  .schedules-list {
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+  
+  .detail-buttons {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .detail-buttons .btn {
+    width: 100%;
+  }
+  
+  /* 날짜 선택 모달이 항상 맨 위에 오도록 설정 */
+  #schedules-list-modal {
+    z-index: 1020;
+  }
+  
+  #schedules-list-modal .modal-content {
+    z-index: 1021;
+  }
+}
+
+/* 매우 작은 화면에서는 가로 스크롤 허용 */
+@media (max-width: 576px) {
+  .calendar-container {
+    overflow-x: auto;
+  }
+  
+  .calendar-grid {
+    min-width: 500px; /* 최소 너비 설정으로 가로 스크롤 허용 */
+  }
+  
+  .calendar-cell {
+    min-height: 70px;
+  }
+  
+  .event {
+    padding: 2px 4px;
+    font-size: 10px;
+  }
+  
+  .more-events {
+    font-size: 10px;
+  }
+}
+
+/* 모달 스타일 */
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  overflow-y: auto;
+  transition: opacity 0.3s ease;
+}
+
+.modal-content {
+  background-color: white;
+  margin: 10% auto;
+  padding: 20px;
+  border-radius: 5px;
+  width: 80%;
+  max-width: 600px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  position: relative;
+  z-index: 1001;
+  transform: translateY(0);
+  transition: transform 0.3s ease;
+}
+
+/* 일정 수정/삭제를 위한 모달은 더 높은 z-index 사용 */
+#schedule-form-modal {
+  z-index: 1010;
+}
+
+#schedule-form-modal .modal-content {
+  z-index: 1011;
+}
+
+/* 모달 닫기 버튼 */
+.close-modal {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  font-size: 24px;
+  font-weight: bold;
+  cursor: pointer;
+  color: #666;
+}
+
+.close-modal:hover {
+  color: #000;
+}
+
+.modal h3 {
+  margin-top: 0;
+  color: #333;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+}
+
+.modal-actions {
+  margin-top: 20px;
+  text-align: right;
+}
+
+/* 일정 목록 모달 - 개선된 스타일 */
+.schedules-list {
+  max-height: 450px;
+  overflow-y: auto;
+  padding: 5px;
+}
+
+/* 모달에서의 일정 표시 */
+#schedules-list .schedule-item {
+  background-color: #ffffff;
+  border-left: 4px solid #1976d2;
+  padding: 15px;
+  margin-bottom: 15px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  position: relative;
+}
+
+#schedules-list .schedule-item:hover {
+  background-color: #f8f9fa;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+#schedules-list .schedule-item.completed {
+  border-left-color: #4caf50;
+}
+
+#schedules-list .schedule-item.pending {
+  border-left-color: #ffc107;
+}
+
+#schedules-list .schedule-item.canceled {
+  border-left-color: #f44336;
+  opacity: 0.8;
+}
+
+/* 일정 헤더 */
+.schedule-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+  position: relative;
+}
+
+.schedule-title {
+  font-weight: 600;
+  color: #333;
+  font-size: 16px;
+  flex-grow: 1;
+  margin-right: 10px;
+}
+
+/* 상태 뱃지 */
+.status-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 500;
+  display: inline-block;
+}
+
+.status-badge.completed {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status-badge.pending {
+  background-color: #fff8e1;
+  color: #f57c00;
+}
+
+.status-badge.canceled {
+  background-color: #ffebee;
+  color: #c62828;
+}
+
+/* 일정 상세 정보 */
+.schedule-details {
+  padding-left: 20px;
+  color: #6c757d;
+  font-size: 13px;
+}
+
+.schedule-time {
+  margin-bottom: 5px;
+}
+
+.schedule-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.schedule-info .committee,
+.schedule-info .org {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.schedule-info .committee {
+  background-color: #e9ecef;
+  padding: 3px 10px;
+  border-radius: 15px;
+  font-weight: 500;
+}
+
+.schedule-info .org {
+  color: #495057;
+  font-weight: 500;
+}
+
+.schedule-notes {
+  background-color: #f8f9fa;
+  padding: 8px 10px;
+  border-radius: 6px;
+  margin-top: 8px;
+  font-style: italic;
+  color: #6c757d;
+  white-space: pre-line;
+}
+
+/* 일정 개수 표시 */
+.schedule-count {
+  text-align: right;
+  color: #6c757d;
+  font-size: 13px;
+  margin-bottom: 15px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.schedule-count strong {
+  color: #495057;
+  font-weight: 600;
+}
+
+/* 빈 메시지 스타일 */
+.empty-message {
+  text-align: center;
+  padding: 30px 20px;
+  color: #adb5bd;
+}
+
+.empty-message i {
+  font-size: 48px;
+  margin-bottom: 15px;
+  display: block;
+}
+
+.empty-message p {
+  font-size: 16px;
+  margin: 0;
+}
+
+.add-schedule-btn {
+  width: 100%;
+  padding: 8px;
+  margin-top: 10px;
+  background-color: #f5f5f5;
+  border: 1px dashed #ccc;
+  color: #555;
+  text-align: center;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.add-schedule-btn:hover {
+  background-color: #eaeaea;
+}
+
+/* 상세 정보 */
+.detail-row {
+  display: flex;
+  margin-bottom: 10px;
+  border-bottom: 1px solid #f5f5f5;
+  padding-bottom: 10px;
+}
+
+.detail-label {
+  width: 30%;
+  font-weight: bold;
+  color: #555;
+}
+
+.detail-value {
+  width: 70%;
+}
+
+.detail-value.status {
+  padding: 2px 8px;
+  border-radius: 10px;
+  display: inline-block;
+  font-size: 12px;
+}
+
+.detail-value.status.completed {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+.detail-value.status.pending {
+  background-color: #fff3e0;
+  color: #e65100;
+}
+
+.detail-value.status.canceled {
+  background-color: #ffebee;
+  color: #c62828;
+}
+
+.detail-value.description {
+  white-space: pre-line;
+}
+
+.detail-buttons, .schedule-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+/* 폼 스타일 */
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-row {
+  display: flex;
+  gap: 15px;
+}
+
+.form-group.half {
+  flex: 1;
+}
+
+label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+  color: #555;
+}
+
+input[type="text"],
+input[type="date"],
+input[type="time"],
+select,
+textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.form-actions {
+  margin-top: 20px;
+  text-align: right;
+}
+
+/* 버튼 스타일 */
+.btn {
+  padding: 8px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s;
+}
+
+.btn-primary {
+  background-color: #007bff;
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: #0069d9;
+}
+
+.btn-secondary {
+  background-color: #6c757d;
+  color: white;
+}
+
+.btn-secondary:hover {
+  background-color: #5a6268;
+}
+
+.btn-danger {
+  background-color: #dc3545;
+  color: white;
+}
+
+.btn-danger:hover {
+  background-color: #c82333;
+}
+
+/* 알림 스타일 - 개선된 버전 */
+.notification {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  padding: 15px 20px;
+  border-radius: 8px;
+  color: white;
+  font-size: 14px;
+  z-index: 2000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  display: none;
+  animation: slideIn 0.3s ease-out forwards;
+  max-width: 350px;
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.notification.success {
+  background-color: #28a745;
+  border-left: 5px solid #1e7e34;
+}
+
+.notification.error {
+  background-color: #dc3545;
+  border-left: 5px solid #bd2130;
+}
+
+.notification.info {
+  background-color: #007bff;
+  border-left: 5px solid #0056b3;
+}
+
+/* 로딩 표시기 */
+.loading-spinner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(255, 255, 255, 0.7);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.loading-spinner p {
+  margin-top: 15px;
+  color: #333;
+  font-size: 16px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 모바일에서 세로 화면일 때 추가 조정 */
+@media (max-width: 480px) {
+  .modal-content {
+    margin: 2% auto;
+  }
+  
+  /* 상세 정보 레이아웃 조정 */
+  .detail-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .detail-label {
+    width: 100%;
+    margin-bottom: 4px;
+  }
+  
+  .detail-value {
+    width: 100%;
+  }
+}
+
+/* 종합보고서 스타일 */
+.report-container {
+  background-color: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  margin: 20px;
+  overflow: hidden;
+  animation: slideIn 0.5s ease-out;
+  max-width: 900px;
+  margin: 20px auto;
+}
+
+.report-header-bar {
+  background-color: #f8f9fa;
+  padding: 15px 20px;
+  border-bottom: 1px solid #e9ecef;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.report-header-bar h2 {
+  margin: 0;
+  color: #495057;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.report-header-bar h2 i {
+  color: #1976d2;
+}
+
+.report-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.report-content {
+  padding: 20px;
+}
+
+.report-summary {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 30px;
+  text-align: center;
+}
+
+.summary-item {
+  padding: 15px;
+  border-radius: 8px;
+  background-color: #f8f9fa;
+  min-width: 120px;
+}
+
+.summary-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1976d2;
+  margin-bottom: 5px;
+}
+
+.summary-label {
+  font-size: 14px;
+  color: #6c757d;
+}
+
+.report-content h3 {
+  margin: 25px 0 15px;
+  color: #495057;
+  font-size: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.top-organizations {
+  margin-bottom: 30px;
+}
+
+.report-header {
+  display: grid;
+  grid-template-columns: 50px 2fr 1fr 1.5fr;
+  gap: 10px;
+  padding: 10px 15px;
+  background-color: #f8f9fa;
+  font-weight: 600;
+  color: #495057;
+  border-radius: 6px 6px 0 0;
+  font-size: 13px;
+}
+
+.report-item {
+  display: grid;
+  grid-template-columns: 50px 2fr 1fr 1.5fr;
+  gap: 10px;
+  padding: 12px 15px;
+  border-bottom: 1px solid #e9ecef;
+  align-items: center;
+  transition: background-color 0.2s;
+}
+
+.report-item:hover {
+  background-color: #f8f9fa;
+}
+
+.report-item:last-child {
+  border-bottom: none;
+  border-radius: 0 0 6px 6px;
+}
+
+.report-rank {
+  font-weight: 700;
+  color: #1976d2;
+  text-align: center;
+}
+
+.report-org-name {
+  font-weight: 500;
+  color: #212529;
+}
+
+.report-visit-count {
+  color: #495057;
+  font-weight: 600;
+}
+
+.report-last-visit {
+  color: #6c757d;
+  font-size: 13px;
+}
+
+.monthly-distribution {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 30px;
+}
+
+.monthly-item {
+  display: grid;
+  grid-template-columns: 120px 1fr 60px;
+  gap: 15px;
+  align-items: center;
+}
+
+.month-name {
+  font-weight: 500;
+  color: #495057;
+}
+
+.month-bar {
+  height: 12px;
+  background-color: #e9ecef;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.month-bar-fill {
+  height: 100%;
+  background-color: #1976d2;
+  border-radius: 6px;
+  transition: width 0.5s ease-out;
+}
+
+.month-count {
+  font-weight: 600;
+  color: #495057;
+  text-align: right;
+}
+
+.report-footer {
+  margin-top: 20px;
+  text-align: right;
+  color: #adb5bd;
+  font-size: 12px;
+  font-style: italic;
+}
+
+.empty-data {
+  text-align: center;
+  padding: 20px;
+  color: #adb5bd;
+  font-style: italic;
+}
+
+/* 모바일 반응형 스타일 */
+@media (max-width: 768px) {
+  .report-header, .report-item {
+    grid-template-columns: 40px 1.5fr 1fr 1fr;
+    font-size: 12px;
+    gap: 5px;
+    padding: 10px;
+  }
+  
+  .summary-value {
+    font-size: 22px;
+  }
+  
+  .summary-label {
+    font-size: 12px;
+  }
+  
+  .monthly-item {
+    grid-template-columns: 100px 1fr 50px;
+  }
+}

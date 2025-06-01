@@ -1,0 +1,1443 @@
+// 캘린더 관련 JavaScript 코드
+(function() {
+  // 전역 변수 선언
+  let currentYear, currentMonth, currentDate;
+  let schedules = [];
+  let committees = [];
+  let organizations = [];
+  let currentUser = null;
+  let nextScheduleId = 1; // 일정 ID 생성용 카운터
+  let isDataLoading = false;
+  let committeeMap = {}; // 위원 ID -> 이름 매핑 캐시
+  let organizationMap = {}; // 기관코드 -> 기관명 매핑 캐시
+
+  // 초기화 함수 참조
+  let calendarInitialize;
+
+  // 로컬 스토리지 키 상수
+  const LOCAL_STORAGE_SCHEDULES_KEY = 'calendar_schedules';
+  const LOCAL_STORAGE_LAST_UPDATE_KEY = 'calendar_last_update';
+
+  // 디버깅 도구
+  const CalendarDebugger = {
+    errors: [],
+    warnings: [],
+    info: [],
+    
+    // 로그 함수 - 개선된 버전
+    log: function(message, type = 'info', data = null) {
+      const timestamp = new Date().toISOString();
+      const prefix = `[${timestamp}] ${type.toUpperCase()}: `;
+      console.log(prefix + message);
+      
+      // 데이터가 있으면 로그에 추가
+      if (data) {
+        if (type === 'error') {
+          console.error('데이터:', data);
+        } else {
+          console.log('데이터:', data);
+        }
+      }
+      
+      // 종합보고서 관련 로그는 별도로 표시
+      if (message.includes('종합보고서')) {
+        console.log('%c' + message, 'background: #e3f2fd; color: #0d47a1; padding: 2px 5px; border-radius: 3px;');
+        if (data) {
+          console.log('%c종합보고서 데이터:', 'background: #e3f2fd; color: #0d47a1; padding: 2px 5px; border-radius: 3px;', data);
+        }
+      }
+      
+      const logEntry = { timestamp, message };
+      
+      if (type === 'error') {
+        this.errors.push(logEntry);
+      } else if (type === 'warning') {
+        this.warnings.push(logEntry);
+      } else {
+        this.info.push(logEntry);
+      }
+    },
+    
+    // DOM 요소 확인
+    checkElement: function(selector, description) {
+      const element = document.querySelector(selector);
+      if (!element) {
+        this.log(`${description} (${selector}) 요소를 찾을 수 없습니다`, 'error');
+        return false;
+      }
+      this.log(`${description} (${selector}) 요소 확인 성공`, 'info');
+      return true;
+    },
+    
+    // 상태 출력
+    printStatus: function() {
+      console.group('현재 캘린더 상태');
+      console.log('오류가 발생했나요?', this.errors.length > 0 ? '예' : '아니오');
+      
+      if (this.errors.length > 0) {
+        console.group('발생한 오류들');
+        this.errors.forEach(e => console.log(`- ${e.message}`));
+        console.groupEnd();
+      }
+      
+      console.groupEnd();
+    }
+  };
+
+  // 기본 인증 헤더 가져오기 함수 - 전역 스코프로 이동
+  function getAuthHeaders() {
+    try {
+      // window.getAuthHeaders가 함수로 존재하는지 확인
+      if (typeof window.getAuthHeaders === 'function') {
+        return window.getAuthHeaders();
+      }
+      
+      // 로컬 스토리지에서 토큰 가져오기
+      const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken') || '';
+      let authHeaders = {};
+      
+      if (token) {
+        authHeaders = {
+          'Authorization': `Bearer ${token}`
+        };
+      }
+      
+      // 기본 헤더 추가
+      authHeaders = {
+        ...authHeaders,
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache, no-store, must-revalidate'
+      };
+      
+      return authHeaders;
+    } catch (error) {
+      console.warn('인증 헤더 가져오기 오류:', error);
+      
+      // 오류 발생 시 기본 헤더 반환
+      return {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache, no-store, must-revalidate'
+      };
+    }
+  }
+  
+  // 캠린더 설정 함수
+  function setupCalendar() {
+
+    // 기관명 가져오기 함수
+    function getOrganizationName(orgCode) {
+      if (!orgCode) return '알 수 없는 기관';
+      
+      // 캐시에서 먼저 확인
+      if (organizationMap[orgCode]) {
+        return organizationMap[orgCode];
+      }
+      
+      // 기관 목록에서 해당 코드의 기관 찾기
+      const org = organizations.find(org => org.code === orgCode || org.id === orgCode);
+      
+      // 기관이 있으면 기관명 반환, 없으면 코드 반환
+      if (org && org.name) {
+        // 캐시에 저장
+        organizationMap[orgCode] = org.name;
+        return org.name;
+      }
+      
+      // 하드코딩된 기관 매핑 (기관 정보 로드 실패 시 대체용)
+      const orgMapping = {
+        'A48240002': '한국지능정보사회진흥원',
+        'A48240001': '과학기술정보통신부',
+        'B48240001': '국가정보자원관리원',
+        'C48240001': '한국인터넷진흥원'
+      };
+      
+      if (orgMapping[orgCode]) {
+        // 캐시에 저장
+        organizationMap[orgCode] = orgMapping[orgCode];
+        return orgMapping[orgCode];
+      }
+      
+      return `기관(${orgCode})`;
+    }
+
+    // 위원 이름 매핑 함수
+    function mapCommitteeName(originalName) {
+      if (!originalName) return '';
+      
+      // 캐시에서 먼저 확인
+      if (committeeMap[originalName]) {
+        return committeeMap[originalName];
+      }
+      
+      return originalName;
+    }
+
+    // 초기화 함수
+    async function init() {
+      try {
+        // 현재 날짜 설정
+        const today = new Date();
+        currentYear = today.getFullYear();
+        currentMonth = today.getMonth();
+        currentDate = today.getDate();
+        
+        // 위원 및 기관 정보 가져오기
+        await Promise.all([
+          getCommittees(),
+          getOrganizations()
+        ]);
+        
+        // 로컬 스토리지에서 일정 불러오기
+        loadSchedulesFromLocalStorage();
+        
+        // 캘린더 렌더링
+        renderCalendar(currentYear, currentMonth);
+        
+        // 이벤트 리스너 등록
+        setupEventListeners();
+        
+        console.log('캘린더 초기화 완료');
+      } catch (error) {
+        console.error('캘린더 초기화 중 오류:', error);
+      }
+    }
+
+    // 캘린더 렌더링 함수 - 개선된 버전
+    function renderCalendar(year, month) {
+      // 캘린더 그리드 요소 가져오기
+      const calendarGrid = document.getElementById('calendar-grid');
+      if (!calendarGrid) {
+        console.error('캘린더 그리드 요소를 찾을 수 없습니다.');
+        return;
+      }
+      
+      // 년월 표시 요소 가져오기
+      const monthYearText = document.getElementById('month-year');
+      if (monthYearText) {
+        // 년월 텍스트 설정 (한글로 표시)
+        monthYearText.textContent = `${year}년 ${month + 1}월`;
+      }
+      
+      // 현재 월의 첫날
+      const firstDay = new Date(year, month, 1);
+      
+      // 첫날의 요일 (0: 일요일, 1: 월요일, ..., 6: 토요일)
+      const startingDay = firstDay.getDay();
+      
+      // 현재 월의 마지막 날짜
+      const lastDay = new Date(year, month + 1, 0);
+      const endingDate = lastDay.getDate();
+      
+      // 이전 월의 마지막 날짜 (이전 월 표시용)
+      const prevMonthLastDay = new Date(year, month, 0);
+      const prevMonthLastDate = prevMonthLastDay.getDate();
+      
+      // 캘린더 그리드 비우기
+      calendarGrid.innerHTML = '';
+      
+      // 요일 헤더 추가
+      const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+      weekdays.forEach(day => {
+        const dayHeader = document.createElement('div');
+        dayHeader.classList.add('day-header');
+        dayHeader.textContent = day;
+        
+        // 일요일은 빨간색으로 표시
+        if (day === '일') {
+          dayHeader.classList.add('sunday');
+        }
+        
+        calendarGrid.appendChild(dayHeader);
+      });
+      
+      // 날짜 셀 생성
+      let dateCell;
+      let cellDate;
+      
+      // 이전 월 날짜 (회색으로 표시)
+      for (let i = 0; i < startingDay; i++) {
+        dateCell = document.createElement('div');
+        dateCell.classList.add('date-cell', 'inactive');
+        
+        // 일요일 표시
+        if (i % 7 === 0) {
+          dateCell.classList.add('sunday');
+        }
+        
+        // 이전 월의 날짜 계산
+        cellDate = prevMonthLastDate - startingDay + i + 1;
+        
+        // 날짜 표시
+        dateCell.innerHTML = `<div class="date-number">${cellDate}</div>`;
+        
+        calendarGrid.appendChild(dateCell);
+      }
+      
+      // 현재 월 날짜
+      const today = new Date();
+      for (let i = 1; i <= endingDate; i++) {
+        dateCell = document.createElement('div');
+        dateCell.classList.add('date-cell');
+        
+        // 오늘 날짜는 강조 표시
+        if (
+          year === today.getFullYear() &&
+          month === today.getMonth() &&
+          i === today.getDate()
+        ) {
+          dateCell.classList.add('today');
+        }
+        
+        // 일요일은 빨간색으로 표시
+        const cellDay = new Date(year, month, i).getDay();
+        if (cellDay === 0) {
+          dateCell.classList.add('sunday');
+        }
+        
+        // 날짜 표시
+        dateCell.innerHTML = `<div class="date-number">${i}</div>`;
+        
+        // 날짜 문자열 생성 (YYYY-MM-DD 형식)
+        const year = year;
+        const month = String(month + 1).padStart(2, '0');
+        const day = String(i).padStart(2, '0');
+        const dateString = `${year}-${month}-${day}`;
+        
+        // 해당 날짜의 일정 가져오기
+        const dateSchedules = schedules.filter(schedule => {
+          const scheduleDate = schedule.scheduleDate || schedule.date || schedule.startDate;
+          return scheduleDate === dateString;
+        });
+        
+        // 일정이 있으면 표시
+        if (dateSchedules.length > 0) {
+          const scheduleList = document.createElement('div');
+          scheduleList.classList.add('schedule-list');
+          
+          // 최대 3개만 표시하고 나머지는 '+더보기' 형식으로 표시
+          const maxDisplay = 3;
+          const displayCount = Math.min(dateSchedules.length, maxDisplay);
+          
+          for (let j = 0; j < displayCount; j++) {
+            const schedule = dateSchedules[j];
+            const scheduleItem = document.createElement('div');
+            scheduleItem.classList.add('schedule-item');
+            
+            // 일정 상태에 따른 스타일 추가
+            if (schedule.status === 'completed') {
+              scheduleItem.classList.add('completed');
+            } else if (schedule.status === 'pending') {
+              scheduleItem.classList.add('pending');
+            } else if (schedule.status === 'canceled') {
+              scheduleItem.classList.add('canceled');
+            }
+            
+            // 위원 정보 가져오기
+            let committeeId = schedule.committeeId;
+            let committeeName = schedule.committeeName || '담당자 미지정';
+            
+            // 위원 색상 가져오기
+            const committeeColor = getCommitteeColor(committeeId);
+            
+            // 기관 정보 가져오기
+            let orgName = '';
+            if (schedule.organizationName) {
+              orgName = schedule.organizationName;
+            } else if (schedule.orgName) {
+              orgName = schedule.orgName;
+            } else if (schedule.orgCode || schedule.organizationCode) {
+              const orgCode = schedule.orgCode || schedule.organizationCode;
+              orgName = getOrganizationName(orgCode);
+            }
+            
+            // 일정 제목 결정
+            const title = schedule.title || (orgName ? `${orgName} 방문` : '일정');
+            
+            // 일정 도트 색상 설정
+            const dotColor = schedule.status === 'completed' ? '#4caf50' : 
+                         schedule.status === 'pending' ? '#ffc107' : 
+                         schedule.status === 'canceled' ? '#f44336' : 
+                         committeeColor;
+            
+            // 일정 내용 표시
+            scheduleItem.innerHTML = `
+              <div class="schedule-dot" style="background-color: ${dotColor};"></div>
+              <div class="schedule-title">${title}</div>
+            `;
+            
+            // 일정 클릭 이벤트 추가
+            scheduleItem.addEventListener('click', (e) => {
+              e.stopPropagation(); // 날짜 셀 클릭 이벤트 전파 방지
+              showDateSchedules(dateString);
+            });
+            
+            scheduleList.appendChild(scheduleItem);
+          }
+          
+          // 더 많은 일정이 있으면 '더보기' 표시
+          if (dateSchedules.length > maxDisplay) {
+            const moreItem = document.createElement('div');
+            moreItem.classList.add('schedule-more');
+            moreItem.textContent = `+${dateSchedules.length - maxDisplay}개 더보기`;
+            
+            // 더보기 클릭 이벤트 추가
+            moreItem.addEventListener('click', (e) => {
+              e.stopPropagation(); // 날짜 셀 클릭 이벤트 전파 방지
+              showDateSchedules(dateString);
+            });
+            
+            scheduleList.appendChild(moreItem);
+          }
+          
+          dateCell.appendChild(scheduleList);
+        }
+        
+        // 날짜 클릭 이벤트 추가
+        dateCell.addEventListener('click', () => {
+          // 일정 목록 모달 표시
+          showDateSchedules(dateString);
+        });
+        
+        calendarGrid.appendChild(dateCell);
+      }
+      
+      // 다음 월 날짜 (남은 칸 채우기, 회색으로 표시)
+      const totalCells = 42; // 6주 표시 (6 * 7 = 42)
+      const remainingCells = totalCells - (startingDay + endingDate);
+      
+      for (let i = 1; i <= remainingCells; i++) {
+        dateCell = document.createElement('div');
+        dateCell.classList.add('date-cell', 'inactive');
+        
+        // 일요일 표시
+        const cellDay = (startingDay + endingDate + i - 1) % 7;
+        if (cellDay === 0) {
+          dateCell.classList.add('sunday');
+        }
+        
+        // 날짜 표시
+        dateCell.innerHTML = `<div class="date-number">${i}</div>`;
+        
+        calendarGrid.appendChild(dateCell);
+      }
+    }
+
+    // 사용자 정보 가져오기 함수
+    async function getCurrentUser() {
+      try {
+        // 사용자 정보 가져오기
+        const response = await fetch('/api/auth/me', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include'
+        });
+        
+        if (!response.ok) {
+          throw new Error(`API 오류: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // 사용자 정보 반환
+        return data.data.user;
+      } catch (error) {
+        console.error('사용자 정보 가져오기 중 오류:', error);
+        // 에러 발생 시 로컬 스토리지에서 가져오기 시도
+        try {
+          const userData = localStorage.getItem('user');
+          if (userData) {
+            return JSON.parse(userData);
+          }
+        } catch (e) {
+          console.error('로컬 스토리지에서 사용자 정보 가져오기 중 오류:', e);
+        }
+        return null;
+      }
+    }
+
+    // 일정 가져오기 함수
+    async function getSchedules() {
+      try {
+        // 로컬 스토리지에서 일정 가져오기
+        const localData = localStorage.getItem(LOCAL_STORAGE_SCHEDULES_KEY);
+        const lastUpdate = localStorage.getItem(LOCAL_STORAGE_LAST_UPDATE_KEY);
+        
+        // 로컬 스토리지에 데이터가 있고, 24시간 이내에 업데이트된 경우 로컬 데이터 사용
+        if (localData && lastUpdate) {
+          const lastUpdateTime = new Date(lastUpdate).getTime();
+          const currentTime = new Date().getTime();
+          const hoursDiff = (currentTime - lastUpdateTime) / (1000 * 60 * 60);
+          
+          if (hoursDiff < 24) {
+            console.log('로컬 스토리지에서 일정 데이터 로드');
+            schedules = JSON.parse(localData);
+            
+            // 일정 데이터 표준화 (기관코드를 기관명으로 변환)
+            return schedules;
+          }
+          
+          return schedules;
+        }
+        
+        return [];
+      } catch (error) {
+
+// 해당 날짜의 일정 가져오기
+const dateSchedules = schedules.filter(schedule => {
+  const scheduleDate = schedule.scheduleDate || schedule.date || schedule.startDate;
+  return scheduleDate === dateString;
+});
+
+// 일정이 있으면 표시
+if (dateSchedules.length > 0) {
+  const scheduleList = document.createElement('div');
+  scheduleList.classList.add('schedule-list');
+
+  // 최대 3개만 표시하고 나머지는 '+더보기' 형식으로 표시
+  const maxDisplay = 3;
+  const displayCount = Math.min(dateSchedules.length, maxDisplay);
+
+  for (let j = 0; j < displayCount; j++) {
+    const schedule = dateSchedules[j];
+    const scheduleItem = document.createElement('div');
+    scheduleItem.classList.add('schedule-item');
+
+    // 일정 상태에 따른 스타일 추가
+    if (schedule.status === 'completed') {
+      scheduleItem.classList.add('completed');
+    } else if (schedule.status === 'pending') {
+      scheduleItem.classList.add('pending');
+    } else if (schedule.status === 'canceled') {
+      scheduleItem.classList.add('canceled');
+    }
+
+    // 위원 정보 가져오기
+    let committeeId = schedule.committeeId;
+    let committeeName = schedule.committeeName || '담당자 미지정';
+
+    // 위원 색상 가져오기
+    const committeeColor = getCommitteeColor(committeeId);
+
+    // 기관 정보 가져오기
+    let orgName = '';
+    if (schedule.organizationName) {
+      orgName = schedule.organizationName;
+    } else if (schedule.orgName) {
+      orgName = schedule.orgName;
+    } else if (schedule.orgCode || schedule.organizationCode) {
+      const orgCode = schedule.orgCode || schedule.organizationCode;
+      orgName = getOrganizationName(orgCode);
+    }
+
+    // 일정 제목 결정
+    const title = schedule.title || (orgName ? `${orgName} 방문` : '일정');
+
+    // 일정 도트 색상 설정
+    const dotColor = schedule.status === 'completed' ? '#4caf50' :
+      schedule.status === 'pending' ? '#ffc107' :
+        schedule.status === 'canceled' ? '#f44336' :
+          committeeColor;
+
+    // 일정 내용 표시
+    scheduleItem.innerHTML = `
+      <div class="schedule-dot" style="background-color: ${dotColor};"></div>
+      <div class="schedule-title">${title}</div>
+    `;
+
+    // 일정 클릭 이벤트 추가
+    scheduleItem.addEventListener('click', (e) => {
+      e.stopPropagation(); // 날짜 셀 클릭 이벤트 전파 방지
+      showDateSchedules(dateString);
+    });
+
+    scheduleList.appendChild(scheduleItem);
+  }
+
+  // 더 많은 일정이 있으면 '더보기' 표시
+  if (dateSchedules.length > maxDisplay) {
+    const moreItem = document.createElement('div');
+    moreItem.classList.add('schedule-more');
+    moreItem.textContent = `+${dateSchedules.length - maxDisplay}개 더보기`;
+
+    // 더보기 클릭 이벤트 추가
+    moreItem.addEventListener('click', (e) => {
+      e.stopPropagation(); // 날짜 셀 클릭 이벤트 전파 방지
+      showDateSchedules(dateString);
+    });
+
+    scheduleList.appendChild(moreItem);
+  }
+
+  dateCell.appendChild(scheduleList);
+}
+
+// 날짜 클릭 이벤트 추가
+dateCell.addEventListener('click', () => {
+  // 일정 목록 모달 표시
+  showDateSchedules(dateString);
+});
+
+calendarGrid.appendChild(dateCell);
+}
+
+// 다음 월 날짜 (남은 칸 채우기, 회색으로 표시)
+const totalCells = 42; // 6주 표시 (6 * 7 = 42)
+const remainingCells = totalCells - (startingDay + endingDate);
+
+for (let i = 1; i <= remainingCells; i++) {
+  dateCell = document.createElement('div');
+  dateCell.classList.add('date-cell', 'inactive');
+
+  // 일요일 표시
+  const cellDay = (startingDay + endingDate + i - 1) % 7;
+  if (cellDay === 0) {
+    dateCell.classList.add('sunday');
+  }
+
+  // 날짜 표시
+  dateCell.innerHTML = `<div class="date-number">${i}</div>`;
+
+  calendarGrid.appendChild(dateCell);
+}
+
+// 사용자 정보 가져오기 함수
+async function getCurrentUser() {
+  try {
+    // 사용자 정보 가져오기
+    const response = await fetch('/api/auth/me', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      credentials: 'include'
+    });
+
+    if (!response.ok) {
+      throw new Error(`API 오류: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    // 사용자 정보 반환
+    return data.data.user;
+  } catch (error) {
+    console.error('사용자 정보 가져오기 중 오류:', error);
+    // 에러 발생 시 로컬 스토리지에서 가져오기 시도
+    try {
+      const userData = localStorage.getItem('user');
+      if (userData) {
+        return JSON.parse(userData);
+      }
+    } catch (e) {
+      console.error('로컬 스토리지에서 사용자 정보 가져오기 중 오류:', e);
+    }
+    return null;
+  }
+}
+
+// 일정 가져오기 함수
+async function getSchedules() {
+  try {
+    // 로컬 스토리지에서 일정 가져오기
+    const localData = localStorage.getItem(LOCAL_STORAGE_SCHEDULES_KEY);
+    const lastUpdate = localStorage.getItem(LOCAL_STORAGE_LAST_UPDATE_KEY);
+
+    // 로컬 스토리지에 데이터가 있고, 24시간 이내에 업데이트된 경우 로컬 데이터 사용
+    if (localData && lastUpdate) {
+      const lastUpdateTime = new Date(lastUpdate).getTime();
+      const currentTime = new Date().getTime();
+      const hoursDiff = (currentTime - lastUpdateTime) / (1000 * 60 * 60);
+
+      if (hoursDiff < 24) {
+        console.log('로컬 스토리지에서 일정 데이터 로드');
+        schedules = JSON.parse(localData);
+
+        // 일정 데이터 표준화 (기관코드를 기관명으로 변환)
+        return schedules;
+      }
+
+      return schedules;
+    }
+
+    return [];
+  } catch (error) {
+    console.error('일정 가져오기 중 오류:', error);
+    return [];
+  }
+}
+
+// 위원 목록 가져오기 함수 - 기본 데이터 사용
+async function getCommittees() {
+  try {
+    CalendarDebugger.log('위원 정보 가져오기 시도');
+
+    // 기본 위원 데이터 사용 (organizations-data.js에서 가져옴)
+    CalendarDebugger.log('기본 위원 데이터 사용');
+
+    // window.defaultCommittees에서 가져오거나 기본 데이터 사용
+    committees = window.defaultCommittees || [
+      { id: 'committee1', name: '김위원', role: '위원장', department: '사회복지과', organizationCodes: ['A48240001', 'A48240002'] },
+      { id: 'committee2', name: '이위원', role: '위원', department: '사회복지과', organizationCodes: ['A48240003', 'A48240004'] },
+      { id: 'committee3', name: '박위원', role: '위원', department: '사회복지과', organizationCodes: ['A48240005', 'A48240006'] }
+    ];
+
+    // 위원 ID -> 이름 매핑 캐시 생성
+    committees.forEach(committee => {
+      if (committee.id && committee.name) {
+        committeeMap[committee.id] = committee.name;
+      }
+    });
+
+    console.log(`기본 데이터로 ${committees.length}개 위원 정보 사용`);
+
+    // 현재 사용자 설정 (테스트용)
+    currentUser = committees[0];
+
+    return committees;
+  } catch (error) {
+    console.error('위원 정보 가져오기 중 오류:', error);
+
+    // 오류 발생 시 기본 데이터 반환
+    const defaultCommittees = [
+      { id: 'committee1', name: '김위원', role: '위원장', department: '사회복지과', organizationCodes: ['A48240001', 'A48240002'] }
+    ];
+
+    return defaultCommittees;
+  }
+}
+
+// 기관 목록 가져오기 함수 - 기본 데이터 사용
+async function getOrganizations() {
+  try {
+    // 이미 로드된 기관 정보가 있으면 재사용
+    if (organizations.length > 0) {
+      console.log('이미 로드된 기관 정보 사용');
+      return organizations;
+    }
+    
+    // 기본 기관 데이터 사용 (organizations-data.js에서 가져옴)
+    CalendarDebugger.log('기본 기관 데이터 사용');
+    
+    // window.defaultOrganizations에서 가져오거나 기본 데이터 사용
+    organizations = window.defaultOrganizations || [
+      { id: 'A48240001', code: 'A48240001', name: '서울특별시 노인복지센터', description: '노인복지센터' },
+      { id: 'A48240002', code: 'A48240002', name: '강남구 노인복지센터', description: '노인복지센터' },
+      { id: 'A48240003', code: 'A48240003', name: '강동구 노인복지센터', description: '노인복지센터' },
+      { id: 'A48240004', code: 'A48240004', name: '강북구 노인복지센터', description: '노인복지센터' },
+      { id: 'A48240005', code: 'A48240005', name: '강서구 노인복지센터', description: '노인복지센터' },
+      { id: 'A48240006', code: 'A48240006', name: '관악구 노인복지센터', description: '노인복지센터' }
+    ];
+    
+    // 기관코드 -> 기관명 매핑 캐시 생성
+    organizations.forEach(org => {
+      if (org && (org.code || org.id) && org.name) {
+        const code = org.code || org.id;
+        organizationMap[code] = org.name;
+      }
+    });
+    
+    console.log(`기본 데이터로 ${organizations.length}개 기관 정보 사용`);
+    
+    return organizations;
+  } catch (error) {
+    console.error('기관 정보 가져오기 중 오류:', error);
+    
+    // 오류 발생 시 기본 데이터 반환
+    const defaultOrganizations = [
+      { id: 'A48240001', code: 'A48240001', name: '서울특별시 노인복지센터', description: '노인복지센터' },
+      { id: 'A48240002', code: 'A48240002', name: '강남구 노인복지센터', description: '노인복지센터' }
+    ];
+    
+    // 기관코드 -> 기관명 매핑 캐시 생성
+    defaultOrganizations.forEach(org => {
+      if (org && (org.code || org.id) && org.name) {
+        const code = org.code || org.id;
+        organizationMap[code] = org.name;
+      }
+    });
+    
+    return defaultOrganizations;
+  }
+    
+    // 기관코드를 기관명으로 변환하는 함수
+    function getOrganizationName(orgCode) {
+      // 기관코드가 없으면 기본값 반환
+      if (!orgCode) return '기관 미지정';
+      
+      // 기관코드 -> 기관명 매핑에서 찾기
+      if (organizationMap[orgCode]) {
+        return organizationMap[orgCode];
+      }
+      
+      // 매핑에 없으면 기관 목록에서 찾기
+      const organization = organizations.find(org => (org.code || org.id) === orgCode);
+      if (organization) {
+    }
+      try {
+        // 일정 데이터 저장
+        localStorage.setItem(LOCAL_STORAGE_SCHEDULES_KEY, JSON.stringify(schedules));
+        
+        // 마지막 업데이트 시간 저장
+        localStorage.setItem(LOCAL_STORAGE_LAST_UPDATE_KEY, new Date().toISOString());
+        
+        console.log(`로컬 스토리지에 ${schedules.length}개 일정 저장 완료`);
+      } catch (error) {
+        console.error('로컬 스토리지에 일정 저장 중 오류:', error);
+      }
+    }
+  
+  // 로컬 스토리지에서 일정 불러오기
+  function loadSchedulesFromLocalStorage() {
+    try {
+      const storedSchedules = localStorage.getItem(LOCAL_STORAGE_SCHEDULES_KEY);
+      if (storedSchedules) {
+        schedules = JSON.parse(storedSchedules);
+        
+        // 다음 ID 설정
+        if (schedules.length > 0) {
+          // ID 형식이 'schedule_timestamp_number'인 경우 처리
+          const maxId = schedules.reduce((max, schedule) => {
+            if (typeof schedule.id === 'string' && schedule.id.startsWith('schedule_')) {
+              const parts = schedule.id.split('_');
+              if (parts.length === 3) {
+                const num = parseInt(parts[2], 10);
+                return Math.max(max, num);
+              }
+            }
+            return max;
+          }, 0);
+          
+          nextScheduleId = maxId + 1;
+        }
+        
+        console.log(`로컬 스토리지에서 ${schedules.length}개 일정 불러오기 완료`);
+      } else {
+        console.log('로컬 스토리지에 저장된 일정 데이터가 없습니다.');
+      }
+    } catch (error) {
+      console.error('로컬 스토리지에서 일정 불러오기 중 오류:', error);
+    }
+  }
+
+    // 로컬 스토리지에서 일정 복원 함수
+    function restoreSchedulesFromLocalStorage() {
+      try {
+        // 일정 데이터 가져오기
+        const storedSchedules = localStorage.getItem(LOCAL_STORAGE_SCHEDULES_KEY);
+        
+        if (storedSchedules) {
+          return JSON.parse(storedSchedules);
+        }
+      } catch (error) {
+        console.error('로컬 스토리지에서 일정 복원 중 오류:', error);
+      }
+      
+      return [];
+    }
+
+    // 날짜별 일정 모달 표시 함수 - 개선된 버전
+    function showDateSchedules(dateString) {
+      try {
+        // 해당 날짜의 일정 필터링
+        const dateSchedules = schedules.filter(schedule => {
+          const scheduleDate = schedule.scheduleDate || schedule.date || schedule.startDate;
+          return scheduleDate === dateString;
+        });
+        
+        // 모달 요소 가져오기
+        const modal = document.getElementById('schedules-list-modal');
+        const modalTitle = document.getElementById('schedules-list-modal-title');
+        const schedulesList = document.getElementById('schedules-list');
+        
+        if (!modal || !modalTitle || !schedulesList) {
+          console.error('일정 목록 모달 요소를 찾을 수 없습니다.');
+          return;
+        }
+        
+        // 날짜 형식 변환 (YYYY-MM-DD -> YYYY년 MM월 DD일)
+        const formattedDate = dateString.replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$1년 $2월 $3일');
+        modalTitle.textContent = `${formattedDate} 일정`;
+        
+        // 일정 목록 비우기
+        schedulesList.innerHTML = '';
+        
+        // 일정이 없으면 메시지 표시
+        if (dateSchedules.length === 0) {
+          schedulesList.innerHTML = `
+            <div class="empty-message">
+              <i class="fas fa-calendar-times"></i>
+              <p>이 날짜에 등록된 일정이 없습니다.</p>
+            </div>
+          `;
+        } else {
+          // 일정 개수 표시
+          const countInfo = document.createElement('div');
+          countInfo.className = 'schedule-count';
+          countInfo.innerHTML = `총 <strong>${dateSchedules.length}</strong>개의 일정`;
+          schedulesList.appendChild(countInfo);
+        }
+        
+        // 일정 목록 생성
+        dateSchedules.forEach(schedule => {
+          const scheduleItem = document.createElement('div');
+          scheduleItem.classList.add('schedule-item');
+          
+          // 일정 상태에 따른 스타일 추가
+          if (schedule.status === 'completed') {
+            scheduleItem.classList.add('completed');
+          } else if (schedule.status === 'pending') {
+            scheduleItem.classList.add('pending');
+          } else if (schedule.status === 'canceled') {
+            scheduleItem.classList.add('canceled');
+          }
+          
+          // 기관명 가져오기
+          let orgName = '';
+          if (schedule.organizationName) {
+            orgName = schedule.organizationName;
+          } else if (schedule.orgName) {
+            orgName = schedule.orgName;
+          } else if (schedule.orgCode || schedule.organizationCode) {
+            const orgCode = schedule.orgCode || schedule.organizationCode;
+            orgName = getOrganizationName(orgCode);
+          } else {
+            orgName = '기관 미지정';
+          }
+          
+          // 위원명 가져오기
+          let committeeName = schedule.committeeName || '담당자 미지정';
+          
+          // 일정 시간 가져오기
+          let timeInfo = schedule.time || '종일';
+          
+          // 일정 제목 결정
+          const title = schedule.title || `${orgName} 방문`;
+          
+          // 일정 상태 텍스트
+          let statusText = '';
+          let statusClass = '';
+          
+          if (schedule.status === 'completed') {
+            statusText = '완료';
+            statusClass = 'completed';
+          } else if (schedule.status === 'pending') {
+            statusText = '예정';
+            statusClass = 'pending';
+          } else if (schedule.status === 'canceled') {
+            statusText = '취소';
+            statusClass = 'canceled';
+          }
+          
+          // 일정 도트 색상 설정
+          const committeeColor = getCommitteeColor(schedule.committeeId);
+          const dotColor = schedule.status === 'completed' ? '#4caf50' : 
+                       schedule.status === 'pending' ? '#ffc107' : 
+                       schedule.status === 'canceled' ? '#f44336' : 
+                       committeeColor;
+          
+          // 일정 내용 표시
+          scheduleItem.innerHTML = `
+            <div class="schedule-header">
+              <div class="schedule-dot" style="background-color: ${dotColor};"></div>
+              <div class="schedule-title">${title}</div>
+              ${statusText ? `<span class="status-badge ${statusClass}">${statusText}</span>` : ''}
+            </div>
+            <div class="schedule-details">
+              <div class="schedule-time"><i class="far fa-clock"></i> ${timeInfo}</div>
+              <div class="schedule-info">
+                <span class="committee"><i class="far fa-user"></i> ${committeeName}</span>
+                <span class="org"><i class="far fa-building"></i> ${orgName}</span>
+              </div>
+              ${schedule.notes ? `<div class="schedule-notes">${schedule.notes}</div>` : ''}
+            </div>
+          `;
+          
+          schedulesList.appendChild(scheduleItem);
+        });
+        
+        // 모달 표시
+        modal.style.display = 'block';
+        
+        // 일정 클릭 이벤트 발생
+        const event = new CustomEvent('date-cell-click', {
+          detail: { date: dateString }
+        });
+        document.dispatchEvent(event);
+      } catch (error) {
+        console.error('날짜별 일정 모달 표시 중 오류:', error);
+      }
+    }
+    
+    // 일정 클릭 이벤트 핸들러
+    function handleScheduleClick(scheduleId) {
+      try {
+        // 일정 클릭 이벤트 발생
+        const event = new CustomEvent('schedule-click', {
+          detail: { scheduleId }
+        });
+        document.dispatchEvent(event);
+      } catch (error) {
+        console.error('일정 클릭 이벤트 처리 중 오류:', error);
+      }
+    }
+    
+    // ID로 일정 가져오기
+    function getScheduleById(scheduleId) {
+      return schedules.find(schedule => schedule.id === scheduleId) || null;
+    }
+    
+    // 현재 위원 정보 가져오기
+    function getCurrentCommittee() {
+      return currentUser || null;
+    }
+    
+    // 기관 목록 가져오기
+    function getOrganizations() {
+      return organizations || [];
+    }
+
+    // 로딩 표시기 표시 함수
+    function showLoadingIndicator() {
+      const loadingIndicator = document.getElementById('loading-indicator');
+      if (loadingIndicator) {
+        loadingIndicator.style.display = 'flex';
+      }
+    }
+
+    // 로딩 표시기 숨김 함수
+    function hideLoadingIndicator() {
+      const loadingIndicator = document.getElementById('loading-indicator');
+      if (loadingIndicator) {
+        loadingIndicator.style.display = 'none';
+      }
+    }
+
+    // 알림 표시 함수
+    function showNotification(message, type = 'info') {
+      const notification = document.getElementById('notification');
+      if (notification) {
+        notification.textContent = message;
+        notification.className = `notification ${type}`;
+        notification.style.display = 'block';
+        
+        // 5초 후 알림 숨기기
+        setTimeout(() => {
+          notification.style.display = 'none';
+        }, 5000);
+      }
+    }
+
+    // 특정 날짜로 이동 함수
+    function goToCalendarDate(dateString) {
+      try {
+        console.log(`날짜 이동 시도: ${dateString}`);
+        
+        // 날짜 문자열 파싱 (YYYY-MM-DD 형식)
+        const dateParts = dateString.split('-');
+        if (dateParts.length !== 3) {
+          console.error('날짜 형식이 잘못되었습니다. YYYY-MM-DD 형식이어야 합니다.');
+          return;
+        }
+        
+        const year = parseInt(dateParts[0]);
+        const month = parseInt(dateParts[1]) - 1; // 월은 0부터 시작
+        const day = parseInt(dateParts[2]);
+        
+        const targetDate = new Date(year, month, day);
+        if (isNaN(targetDate.getTime())) {
+          console.error('유효하지 않은 날짜입니다.');
+          return;
+        }
+        
+        // 캘린더 날짜 변경
+        currentYear = year;
+        currentMonth = month;
+        currentDate = day;
+        renderCalendar(currentYear, currentMonth);
+        console.log(`캘린더 날짜 이동 완료: ${year}년 ${month + 1}월 ${day}일`);
+      } catch (error) {
+        console.error('날짜 이동 중 오류 발생:', error);
+      }
+    }
+
+    // 이벤트 리스너 설정 함수
+    function setupEventListeners() {
+      // 이전 월 버튼 클릭 이벤트
+      const prevMonthBtn = document.getElementById('prev-month');
+      if (prevMonthBtn) {
+        prevMonthBtn.addEventListener('click', () => {
+          currentMonth--;
+          if (currentMonth < 0) {
+            currentMonth = 11;
+            currentYear--;
+          }
+          renderCalendar(currentYear, currentMonth);
+        });
+      }
+      
+      // 다음 월 버튼 클릭 이벤트
+      const nextMonthBtn = document.getElementById('next-month');
+      if (nextMonthBtn) {
+        nextMonthBtn.addEventListener('click', () => {
+          currentMonth++;
+          if (currentMonth > 11) {
+            currentMonth = 0;
+            currentYear++;
+          }
+          renderCalendar(currentYear, currentMonth);
+        });
+      }
+      
+      // 오늘 버튼 클릭 이벤트
+      const todayBtn = document.getElementById('today-btn');
+      if (todayBtn) {
+        todayBtn.addEventListener('click', () => {
+          const today = new Date();
+          currentYear = today.getFullYear();
+          currentMonth = today.getMonth();
+          currentDate = today.getDate();
+          renderCalendar(currentYear, currentMonth);
+        });
+      }
+      
+      // 모달 닫기 버튼 클릭 이벤트
+      document.querySelectorAll('.modal .close').forEach(closeBtn => {
+        closeBtn.addEventListener('click', () => {
+          const modal = closeBtn.closest('.modal');
+          if (modal) {
+            modal.style.display = 'none';
+          }
+        });
+      });
+      
+      // 모달 바깥 클릭 시 닫기
+      window.addEventListener('click', (event) => {
+        document.querySelectorAll('.modal').forEach(modal => {
+          if (event.target === modal) {
+            modal.style.display = 'none';
+          }
+        });
+      });
+    }
+
+    // 종합보고서 데이터 처리 함수
+    function processComprehensiveReportData(organizations, scheduleData) {
+      try {
+        CalendarDebugger.log('종합보고서 데이터 처리 시작', 'info', { organizations: organizations.length, schedules: scheduleData.length });
+        
+        // 기관별 방문 횟수 집계
+        const orgVisitCounts = {};
+        const orgLastVisit = {};
+        
+        // 일정 데이터 분석
+        scheduleData.forEach(schedule => {
+          // 기관 코드 또는 이름 확인
+          const orgCode = schedule.orgCode || schedule.organizationCode;
+          const orgName = schedule.organizationName || schedule.orgName || (orgCode ? getOrganizationName(orgCode) : '알 수 없는 기관');
+          
+          // 기관별 방문 횟수 증가
+          if (!orgVisitCounts[orgName]) {
+            orgVisitCounts[orgName] = 0;
+          }
+          orgVisitCounts[orgName]++;
+          
+          // 기관별 마지막 방문 일자 업데이트
+          const scheduleDate = schedule.scheduleDate || schedule.date || schedule.startDate;
+          if (scheduleDate) {
+            if (!orgLastVisit[orgName] || scheduleDate > orgLastVisit[orgName]) {
+              orgLastVisit[orgName] = scheduleDate;
+            }
+          }
+        });
+        
+        // 방문 횟수 기준 상위 기관 추출
+        const topOrganizations = Object.entries(orgVisitCounts)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5)
+          .map(([name, count]) => ({ 
+            name, 
+            count, 
+            lastVisit: orgLastVisit[name] || '방문 기록 없음' 
+          }));
+        
+        // 월별 일정 분포 분석
+        const monthlyDistribution = {};
+        scheduleData.forEach(schedule => {
+          const scheduleDate = schedule.scheduleDate || schedule.date || schedule.startDate;
+          if (scheduleDate) {
+            const month = scheduleDate.substring(0, 7); // YYYY-MM 형식 추출
+            if (!monthlyDistribution[month]) {
+              monthlyDistribution[month] = 0;
+            }
+            monthlyDistribution[month]++;
+          }
+        });
+        
+        // 결과 저장
+        const reportData = {
+          totalOrganizations: organizations.length,
+          totalSchedules: scheduleData.length,
+          topOrganizations,
+          monthlyDistribution,
+          lastUpdated: new Date().toISOString()
+        };
+        
+        // 로컬 스토리지에 저장
+        localStorage.setItem('comprehensive_report_data', JSON.stringify(reportData));
+        
+        // 결과 로깅
+        CalendarDebugger.log('종합보고서 데이터 처리 완료', 'info', reportData);
+        
+        // 종합보고서 UI 업데이트
+        updateComprehensiveReportUI(reportData);
+        
+        return reportData;
+      } catch (error) {
+        CalendarDebugger.log('종합보고서 데이터 처리 중 오류 발생', 'error', error);
+        return null;
+      }
+    }
+    
+    // 종합보고서 UI 업데이트 함수
+    function updateComprehensiveReportUI(reportData) {
+      try {
+        // 종합보고서 컨테이너 요소 확인
+        const reportContainer = document.getElementById('comprehensive-report-container');
+        if (!reportContainer) {
+          // 컨테이너가 없으면 생성
+          createComprehensiveReportUI();
+          return;
+        }
+        
+        // 보고서 내용 업데이트
+        const reportContent = document.getElementById('comprehensive-report-content');
+        if (reportContent) {
+          // 상위 기관 목록 생성
+          let topOrgsHTML = '';
+          reportData.topOrganizations.forEach((org, index) => {
+            topOrgsHTML += `
+              <div class="report-item">
+                <div class="report-rank">${index + 1}</div>
+                <div class="report-org-name">${org.name}</div>
+                <div class="report-visit-count">${org.count}회</div>
+                <div class="report-last-visit">${formatDate(org.lastVisit)}</div>
+              </div>
+            `;
+          });
+          
+          // 월별 분포 데이터 생성
+          const months = Object.keys(reportData.monthlyDistribution).sort();
+          let monthlyHTML = '';
+          months.forEach(month => {
+            const count = reportData.monthlyDistribution[month];
+            const displayMonth = month.replace('-', '년 ') + '월';
+            monthlyHTML += `
+              <div class="monthly-item">
+                <div class="month-name">${displayMonth}</div>
+                <div class="month-bar">
+                  <div class="month-bar-fill" style="width: ${Math.min(count * 5, 100)}%"></div>
+                </div>
+                <div class="month-count">${count}건</div>
+              </div>
+            `;
+          });
+          
+          // 보고서 내용 업데이트
+          reportContent.innerHTML = `
+            <div class="report-summary">
+              <div class="summary-item">
+                <div class="summary-value">${reportData.totalOrganizations}</div>
+                <div class="summary-label">총 기관 수</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-value">${reportData.totalSchedules}</div>
+                <div class="summary-label">총 일정 수</div>
+              </div>
+              <div class="summary-item">
+                <div class="summary-value">${months.length}</div>
+                <div class="summary-label">활동 개월 수</div>
+              </div>
+            </div>
+            
+            <h3>방문 빈도 상위 기관</h3>
+            <div class="top-organizations">
+              <div class="report-header">
+                <div class="report-rank">순위</div>
+                <div class="report-org-name">기관명</div>
+                <div class="report-visit-count">방문 횟수</div>
+                <div class="report-last-visit">최근 방문일</div>
+              </div>
+              ${topOrgsHTML || '<div class="empty-data">데이터가 없습니다</div>'}
+            </div>
+            
+            <h3>월별 일정 분포</h3>
+            <div class="monthly-distribution">
+              ${monthlyHTML || '<div class="empty-data">데이터가 없습니다</div>'}
+            </div>
+            
+            <div class="report-footer">
+              마지막 업데이트: ${new Date(reportData.lastUpdated).toLocaleString()}
+            </div>
+          `;
+        }
+      } catch (error) {
+        CalendarDebugger.log('종합보고서 UI 업데이트 중 오류 발생', 'error', error);
+      }
+    }
+    
+    // 종합보고서 UI 생성 함수
+    function createComprehensiveReportUI() {
+      try {
+        // 기존 컨테이너 확인
+        let reportContainer = document.getElementById('comprehensive-report-container');
+        
+        // 없으면 새로 생성
+        if (!reportContainer) {
+          reportContainer = document.createElement('div');
+          reportContainer.id = 'comprehensive-report-container';
+          reportContainer.className = 'report-container';
+          
+          // 보고서 헤더
+          const reportHeader = document.createElement('div');
+          reportHeader.className = 'report-header-bar';
+          reportHeader.innerHTML = `
+            <h2><i class="fas fa-chart-bar"></i> 종합보고서</h2>
+            <div class="report-actions">
+              <button id="refresh-report-btn" class="btn btn-sm btn-outline-primary">
+                <i class="fas fa-sync-alt"></i> 새로고침
+              </button>
+              <button id="close-report-btn" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+          `;
+          
+          // 보고서 내용
+          const reportContent = document.createElement('div');
+          reportContent.id = 'comprehensive-report-content';
+          reportContent.className = 'report-content';
+          reportContent.innerHTML = '<div class="loading">보고서 데이터 로드 중...</div>';
+          
+          // 컨테이너에 추가
+          reportContainer.appendChild(reportHeader);
+          reportContainer.appendChild(reportContent);
+          
+          // 페이지에 추가
+          const calendarContainer = document.querySelector('.calendar-container');
+          if (calendarContainer) {
+            calendarContainer.appendChild(reportContainer);
+            
+            // 이벤트 리스너 추가
+            document.getElementById('refresh-report-btn').addEventListener('click', () => {
+              // 데이터 새로고침
+              processComprehensiveReportData(organizations, schedules);
+            });
+            
+            document.getElementById('close-report-btn').addEventListener('click', () => {
+              reportContainer.style.display = 'none';
+            });
+            
+            // 저장된 데이터 불러오기
+            const savedReportData = localStorage.getItem('comprehensive_report_data');
+            if (savedReportData) {
+              try {
+                const reportData = JSON.parse(savedReportData);
+                updateComprehensiveReportUI(reportData);
+              } catch (e) {
+                CalendarDebugger.log('저장된 보고서 데이터 파싱 오류', 'error', e);
+              }
+            }
+          } else {
+            CalendarDebugger.log('캘린더 컨테이너를 찾을 수 없음', 'error');
+          }
+        }
+      } catch (error) {
+        CalendarDebugger.log('종합보고서 UI 생성 중 오류 발생', 'error', error);
+      }
+    }
+    
+    // 날짜 형식 변환 함수
+    function formatDate(dateString) {
+      if (!dateString || dateString === '방문 기록 없음') {
+        return dateString;
+      }
+      
+      try {
+        // YYYY-MM-DD 형식을 YYYY년 MM월 DD일로 변환
+        return dateString.replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$1년 $2월 $3일');
+      } catch (e) {
+        return dateString;
+      }
+    }
+    
+    // 초기화 함수 저장 (외부에서 호출을 위해)
+    calendarInitialize = init;
+    
+    // 전역 함수로 등록 (다른 스크립트에서 접근 가능하도록)
+    window.goToCalendarDate = goToCalendarDate;
+    window.processComprehensiveReport = processComprehensiveReportData;
+    
+    return {
+      initialize: init,
+      renderCalendar: renderCalendar,
+      getOrganizationName: getOrganizationName,
+      setupEventListeners: setupEventListeners,
+      showLoadingIndicator: showLoadingIndicator,
+      hideLoadingIndicator: hideLoadingIndicator,
+      showNotification: showNotification,
+      goToCalendarDate: goToCalendarDate
+    };
+  }
+
+  // 리턴된 캘린더 함수들을 저장할 변수
+  let calendar;
+
+  // DOM이 로드되면 캘린더 기능 설정
+  document.addEventListener('DOMContentLoaded', function() {
+    CalendarDebugger.log('캘린더 DOM 로드 완료');
+    
+    // 필수 DOM 요소 확인
+    CalendarDebugger.checkElement('#calendar-grid', '캘린더 그리드');
+    CalendarDebugger.checkElement('#month-year', '년월 화면');
+    
+    try {
+      // 캘린더 설정 및 초기화
+      CalendarDebugger.log('캘린더 설정 함수 호출');
+      calendar = setupCalendar();
+      
+      // 이벤트 리스너 설정
+      calendar.setupEventListeners();
+      
+      // 비동기 초기화를 위해 setTimeout 사용
+      CalendarDebugger.log('비동기 초기화 시작, 500ms 후 실행');
+      setTimeout(function() {
+        try {
+          CalendarDebugger.log('초기화 함수 호출 시작');
+          calendar.initialize();
+          CalendarDebugger.log('달력 초기화 성공');
+        } catch (error) {
+          CalendarDebugger.log(`달력 초기화 중 오류 발생: ${error.message}`, 'error');
+          
+          // 오류에도 불구하고 렌더링 시도
+          CalendarDebugger.log('달력 강제 렌더링 시도');
+          try {
+            calendar.renderCalendar(new Date());
+            CalendarDebugger.log('달력 강제 렌더링 완료');
+          } catch (renderError) {
+            CalendarDebugger.log(`달력 강제 렌더링 시 오류: ${renderError.message}`, 'error');
+          }
+        }
+        
+        // 추가 확인 - 오류 발생 시 개발자 도구에 출력
+        setTimeout(() => {
+          CalendarDebugger.printStatus();
+        }, 1000);
+      }, 500);
+    } catch (error) {
+      CalendarDebugger.log(`캘린더 설정 중 오류 발생: ${error.message}`, 'error');
+      CalendarDebugger.printStatus();
+    }
+  });
+})(); 

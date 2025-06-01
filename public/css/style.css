@@ -1,0 +1,406 @@
+/* 기본 스타일 */
+:root {
+  --color-primary: #3b82f6;
+}
+
+body {
+  font-family: 'Noto Sans KR', sans-serif;
+  color: #333;
+}
+
+/* 주기 탭 활성화 스타일 */
+.period-tab.active {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  font-weight: 500;
+}
+
+/* 지표 카드 스타일 */
+.indicator-card {
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  transition: all 0.2s ease;
+}
+
+.indicator-card:hover {
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+/* 태그 스타일 */
+.tag {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.tag-common-required {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.tag-common-optional {
+  background-color: #e0e7ff;
+  color: #3730a3;
+}
+
+.tag-assessment {
+  background-color: #fce7f3;
+  color: #9d174d;
+}
+
+.tag-yearly {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.tag-special {
+  background-color: #f3e8ff;
+  color: #7e22ce;
+}
+
+/* 평가 결과 스타일 */
+.result-fulfilled {
+  background-color: #d1fae5;
+  color: #047857;
+}
+
+.result-unfulfilled {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.result-na {
+  background-color: #f3f4f6;
+  color: #6b7280;
+}
+
+/* 기관 카드 스타일 */
+.org-card {
+  border-radius: 8px;
+  border: 1px solid #E0E0E0;
+  transition: all 0.2s ease;
+}
+
+.org-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* 모바일 최적화 */
+@media (max-width: 768px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  .period-tab {
+    padding: 0.5rem;
+    font-size: 0.875rem;
+  }
+}
+
+/* 툴팁 스타일 */
+.tooltip {
+  position: absolute;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+.tooltip::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid #1f2937;
+}
+
+/* 기타 필요한 스타일 추가 */
+.progress-bar {
+  transition: width 0.3s ease;
+}
+
+/* 애니메이션 효과 */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animate-pulse {
+  animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* 로딩 인디케이터 */
+.loading-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.loading-indicator::after {
+  content: '';
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid #e5e7eb;
+  border-top-color: #3b82f6;
+  animation: spin 1s linear infinite;
+}
+
+/* 로더 스타일 추가 */
+.loader {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #3b82f6;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* 스켈레톤 로딩 UI */
+.skeleton {
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0),
+    rgba(255, 255, 255, 0.5),
+    rgba(255, 255, 255, 0)
+  );
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-loading {
+  0% { background-position: -100% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* 월별 모니터링 테이블 */
+.monthly-result-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.monthly-result-table th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-bottom: 1px solid #e5e7eb;
+  white-space: nowrap;
+  padding: 0.5rem 0.75rem;
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+.monthly-result-table td {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  text-align: center;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.monthly-result-table tr:last-child td {
+  border-bottom: none;
+}
+
+.monthly-result-table tbody tr:hover {
+  background-color: #f9fafb;
+}
+
+.monthly-result-table .fixed-column {
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  background-color: white;
+}
+
+/* 반응형 */
+@media (max-width: 768px) {
+  .org-card {
+    padding: 1rem;
+  }
+  
+  .org-card h4 {
+    font-size: 0.875rem;
+  }
+}
+
+/* 지표 타입 스타일 */
+.indicator-yearly {
+  background-color: #fff5f5;
+  border-left: 3px solid #f87171;
+}
+
+.indicator-special {
+  background-color: #f5f3ff;
+  border-left: 3px solid #a78bfa;
+}
+
+/* 지표 목록 및 상세 화면 스크롤 스타일 */
+#indicators-list-sidebar {
+  max-height: 70vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding-right: 5px;
+}
+
+#indicators-list-sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+#indicators-list-sidebar::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+#indicators-list-sidebar::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 10px;
+}
+
+#indicators-list-sidebar::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* 상세 영역 sticky 설정 */
+@media (min-width: 768px) {
+  #indicator-detail {
+    position: sticky;
+    top: 1rem;
+  }
+}
+
+/* 더보기/접기 버튼 스타일 */
+[id^="more-orgs-"],
+[id^="less-orgs-"],
+[id^="more-schedules-"],
+[id^="less-schedules-"] {
+  color: #2563eb;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+[id^="more-orgs-"]:hover,
+[id^="less-orgs-"]:hover,
+[id^="more-schedules-"]:hover,
+[id^="less-schedules-"]:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+/* 화살표 애니메이션 */
+[id^="arrow-"] {
+  display: inline-block;
+  transition: transform 0.3s ease;
+  color: #4b5563;
+  font-size: 0.75rem;
+}
+
+/* 역할 태그 스타일 */
+.role-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.role-main {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.role-sub {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+/* 테이블 행 구분 스타일 */
+.section-header {
+  background-color: #f3f4f6;
+  font-weight: 500;
+}
+
+/* 설명 텍스트 스타일 */
+.text-description {
+  color: #6b7280;
+  font-style: italic;
+  font-size: 0.875rem;
+}
+
+/* 담당자별 일정 뷰 스타일 */
+#committee-schedules-section {
+  transition: all 0.3s ease;
+}
+
+#committee-schedules-container {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.loader {
+  border: 3px solid #f3f3f3;
+  border-radius: 50%;
+  border-top: 3px solid #3498db;
+  width: 20px;
+  height: 20px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 일정 테이블 스타일 */
+#committee-schedules-container table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+#committee-schedules-container th,
+#committee-schedules-container td {
+  padding: 8px 12px;
+  text-align: left;
+}
+
+#committee-schedules-container th {
+  background-color: #f3f4f6;
+  font-weight: 500;
+  color: #6b7280;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+#committee-schedules-container tr:hover {
+  background-color: #f9fafb;
+}
+
+/* 반응형 스타일 */
+@media (max-width: 768px) {
+  #committee-schedules-container {
+    max-height: none;
+  }
+  
+  #committee-schedules-container table {
+    display: block;
+    overflow-x: auto;
+  }
+} 

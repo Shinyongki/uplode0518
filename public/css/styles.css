@@ -1,0 +1,51 @@
+/* 테이블 레이아웃 고정 */
+#integrated-report-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+/* 담당 기관 목록 행 스타일링 */
+.section-header td {
+  width: 100%;
+}
+
+/* 테이블 셀 너비 고정 */
+#integrated-report-table td {
+  box-sizing: border-box;
+}
+
+/* 담당 기관 목록 컨테이너 */
+[id^="orgs-"] tr td {
+  box-sizing: border-box;
+}
+
+/* 테이블 열 너비 지정 */
+#integrated-report-table td:nth-child(1) {
+  width: 35%;
+}
+
+#integrated-report-table td:nth-child(2) {
+  width: 15%;
+}
+
+#integrated-report-table td:nth-child(3) {
+  width: 15%;
+}
+
+#integrated-report-table td:nth-child(4) {
+  width: 35%;
+}
+
+/* 종합 보고서 컨테이너 */
+#comprehensive-report {
+  width: 100%;
+  max-width: 100%;
+  padding: 0;
+}
+
+/* 모든 컨테이너가 100% 너비를 사용하도록 설정 */
+.container {
+  width: 100%;
+  max-width: 100%;
+} 

@@ -1,0 +1,2958 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>구글 시트 지표 데이터 뷰어</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    .loading {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100px;
+    }
+    .loading-spinner {
+      border: 4px solid rgba(0, 0, 0, 0.1);
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border-left-color: #3b82f6;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .sidebar-item {
+      transition: all 0.2s ease;
+      border-left: 3px solid transparent;
+      margin-bottom: 8px;
+      border-radius: 6px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+    .sidebar-item:hover {
+      background-color: #f3f4f6;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .sidebar-item.active {
+      border-left-color: #3b82f6;
+      background-color: #eff6ff;
+      box-shadow: 0 4px 6px rgba(59, 130, 246, 0.2);
+    }
+    
+    /* 특화 연계 항목 스타일 */
+    .special-indicator {
+      background-color: #fef3c7;
+      border-left: 4px solid #f59e0b;
+    }
+    .special-indicator:hover {
+      background-color: #fef3c7;
+      box-shadow: 0 4px 6px rgba(245, 158, 11, 0.2);
+    }
+    .special-indicator.active {
+      background-color: #fef3c7;
+      border-left-color: #f59e0b;
+      box-shadow: 0 4px 6px rgba(245, 158, 11, 0.3);
+    }
+    
+    /* 평가 연계 항목 스타일 */
+    .evaluation-indicator {
+      border-bottom: 2px solid #3b82f6;
+      text-decoration: underline;
+      text-decoration-color: #3b82f6;
+      text-decoration-thickness: 2px;
+    }
+    .evaluation-indicator:hover {
+      box-shadow: 0 4px 6px rgba(59, 130, 246, 0.2);
+    }
+    .evaluation-indicator.active {
+      background-color: #dbeafe;
+      border-left-color: #3b82f6;
+      box-shadow: 0 4px 6px rgba(59, 130, 246, 0.3);
+    }
+    
+    /* 특화 연계 뱃지 */
+    .special-badge {
+      background-color: #fef3c7;
+      color: #92400e;
+      border: 1px solid #f59e0b;
+      font-size: 0.7rem;
+      padding: 2px 6px;
+      border-radius: 12px;
+      display: inline-block;
+      margin-left: 6px;
+      font-weight: 500;
+    }
+    
+    /* 평가 연계 뱃지 */
+    .evaluation-badge {
+      background-color: #dbeafe;
+      color: #1e40af;
+      border: 1px solid #3b82f6;
+      font-size: 0.7rem;
+      padding: 2px 6px;
+      border-radius: 12px;
+      display: inline-block;
+      margin-left: 6px;
+      font-weight: 500;
+    }
+    
+    .tab-item {
+      cursor: pointer;
+      padding: 0.5rem 1rem;
+      border-bottom: 2px solid transparent;
+      transition: all 0.3s ease;
+    }
+    .tab-item.active {
+      border-bottom-color: #3b82f6;
+      color: #3b82f6;
+      font-weight: 600;
+    }
+    .tab-item:hover {
+      background-color: #f3f4f6;
+      border-radius: 4px 4px 0 0;
+    }
+    .progress-bar {
+      height: 0.5rem;
+      background-color: #e5e7eb;
+      border-radius: 0.25rem;
+    }
+    .progress-value {
+      height: 100%;
+      background-color: #3b82f6;
+      border-radius: 0.25rem;
+    }
+    /* 사이드바 고정 스타일 */
+    .sidebar-container {
+      position: sticky;
+      top: 1rem;
+      max-height: calc(100vh - 2rem);
+      overflow-y: auto;
+      padding-right: 10px;
+    }
+    .content-container {
+      overflow-y: auto;
+      background-color: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    }
+    /* 월별 모니터링 체크 스타일 */
+    .month-check {
+      cursor: pointer;
+      transition: all 0.3s ease;
+      border-radius: 4px;
+    }
+    .month-check.unchecked {
+      background-color: #d1d5db; /* 회색 */
+      color: #4b5563;
+    }
+    .month-check.fulfilled {
+      background-color: #10b981; /* 녹색 */
+      color: white;
+    }
+    .month-check.unfulfilled {
+      background-color: #ef4444; /* 빨간색 */
+      color: white;
+    }
+    /* 전체 페이지 스타일 */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 10px 20px;
+      background-color: #10b981;
+      color: white;
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      z-index: 1000;
+    }
+    .toast.show {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+  <header class="bg-white shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 py-2 flex items-center justify-between">
+      <h1 id="header-org-name" class="text-lg font-medium text-gray-900">선택된 기관</h1>
+      <a href="javascript:void(0)" onclick="goBack()" class="text-sm text-blue-600 hover:text-blue-800">← 이전 화면으로 돌아가기</a>
+    </div>
+  </header>
+
+  <div class="max-w-7xl mx-auto px-4 py-4">
+    <!-- 탭 메뉴 -->
+    <div class="border-b border-gray-200 mb-4">
+      <div class="flex space-x-4">
+        <div id="tab-monthly" class="tab-item active">매월 점검</div>
+        <div id="tab-yearly" class="tab-item">연중점검 (1~3월 포함)</div>
+      </div>
+    </div>
+
+    <!-- 지표 목록 상태 표시 -->
+    <div class="mb-6">
+      <h2 class="text-lg font-medium text-gray-900 mb-4">지표별 점검 현황</h2>
+      <!-- 로딩 인디케이터 제거 -->
+    </div>
+
+    <!-- 기관명 표시 헤더 -->
+    <div class="container mx-auto px-4 py-6">
+      <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+        <h1 id="organization-name" class="text-xl font-bold text-blue-700">선택된 기관</h1>
+        <p class="text-sm text-gray-500">지표별 점검 현황</p>
+      </div>
+
+    <!-- 주요 콘텐츠 영역 -->
+    <div class="flex space-x-6">
+      <!-- 왼쪽: 지표 목록 -->
+      <div class="w-1/3 sidebar-container">
+        <h3 class="text-base font-medium text-gray-900 mb-4">점검 지표 목록</h3>
+        <!-- 로딩 인디케이터 제거 -->
+        
+        <div id="sidebar-error" class="hidden px-4 py-3 text-red-700" role="alert">
+          <strong class="font-bold">오류 발생!</strong>
+          <span class="block" id="sidebar-error-text"></span>
+        </div>
+        
+        <div id="indicators-list">
+          <div class="bg-white rounded-lg shadow overflow-hidden">
+            <ul class="divide-y divide-gray-200" id="indicators-sidebar">
+              <!-- 지표 이름 목록이 여기에 동적으로 추가됩니다 -->
+            </ul>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 오른쪽: 지표 상세 정보 -->
+      <div class="w-2/3 content-container">
+        <!-- 로딩 인디케이터 제거 -->
+        
+        <div id="detail-error" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+          <strong class="font-bold">오류 발생!</strong>
+          <span class="block sm:inline" id="detail-error-text"></span>
+        </div>
+        
+        <div id="no-selection" class="text-center py-12 bg-white rounded-lg shadow">
+          <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+          </svg>
+          <h3 class="mt-2 text-sm font-medium text-gray-900">선택된 지표 없음</h3>
+          <p class="mt-1 text-sm text-gray-500">왼쪽의 지표 목록에서 지표를 선택해주세요.</p>
+        </div>
+        
+        <div id="indicator-detail" class="hidden bg-white rounded-lg shadow overflow-hidden">
+          <!-- 선택한 지표의 상세 정보가 여기에 표시됩니다 -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 공통 JavaScript 파일 포함 -->
+  <script src="/js/common.js"></script>
+  <script>
+    
+    // URL 파라미터에서 기관 코드와 기간 가져오기
+    function getUrlParams() {
+      const params = new URLSearchParams(window.location.search);
+      return {
+        orgCode: params.get('orgCode') || 'A48170002', // 기본값 설정
+        period: params.get('period') || '매월',
+        orgName: params.get('orgName') || ''
+      };
+    }
+    
+    // 전역 변수로 URL 파라미터 저장
+    const urlParams = getUrlParams();
+    
+    // 이전 페이지로 돌아가는 함수
+    function goBack() {
+      // document.referrer가 있으면 이전 페이지로, 없으면 홈으로 이동
+      if (document.referrer && !document.referrer.includes('/login')) {
+        window.location.href = document.referrer;
+      } else {
+        window.location.href = '/';
+      }
+    }
+    
+    // 특별 관리 대상 기관인지 확인하는 함수
+    function isSpecialOrganization(orgName) {
+      // 특별히 구분해서 표시해야 하는 5개 기관 목록
+      const specialOrgs = [
+        '진주노인통합지원센터',
+        '함안군재가노인통합지원센터',
+        '창녕군새누리노인통합지원센터',
+        '효능원노인통합지원센터',
+        '진해서부노인종합복지관'
+      ];
+      
+      // 기관명이 특별 기관 목록에 포함되어 있는지 확인
+      return specialOrgs.includes(orgName);
+    }
+    
+    // 기관 코드로부터 기관명 가져오기
+    async function fetchOrganizationName(orgCode) {
+      try {
+        console.log('기관 코드로 기관명 가져오기 시도:', orgCode);
+        const response = await fetch(`/api/organization?code=${orgCode}`);
+        
+        if (!response.ok) {
+          throw new Error(`API 오류: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('기관 정보 가져오기 성공:', data);
+        
+        if (data && data.name) {
+          return data.name;
+        } else if (data && data.organizationName) {
+          return data.organizationName;
+        } else {
+          // API에서 기관명을 찾지 못한 경우 기관 코드 사용
+          console.warn('기관명을 찾지 못했습니다. 기관 코드 사용:', orgCode);
+          return orgCode;
+        }
+      } catch (error) {
+        console.error('기관명 가져오기 오류:', error);
+        return orgCode; // 오류 발생 시 기관 코드 반환
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', async function() {
+      // 기관명 표시 (헤더와 콘텐츠 영역 모두 업데이트)
+      const orgNameElement = document.getElementById('organization-name');
+      const headerOrgNameElement = document.getElementById('header-org-name');
+      
+      // 기관명 가져오기
+      let organizationName = '';
+      
+      if (urlParams.orgName && urlParams.orgName.trim() !== '') {
+        // URL에서 기관명이 전달된 경우
+        organizationName = decodeURIComponent(urlParams.orgName);
+        console.log('URL에서 기관명 가져옴:', organizationName);
+      } else if (urlParams.orgCode) {
+        // 기관명이 없으면 API로 기관 코드로부터 기관명 가져오기
+        console.log('기관명이 없어 API로 가져오기 시도');
+        organizationName = await fetchOrganizationName(urlParams.orgCode);
+      }
+      
+      // 기관명이 여전히 없으면 기본값 사용
+      if (!organizationName || organizationName.trim() === '') {
+        organizationName = urlParams.orgCode || '선택된 기관';
+      }
+      
+      // 특별 기관 여부 확인
+      const isSpecial = isSpecialOrganization(organizationName);
+      
+      if (orgNameElement) {
+        orgNameElement.textContent = organizationName;
+        
+        // 특별 기관인 경우 스타일 적용
+        if (isSpecial) {
+          orgNameElement.classList.add('bg-yellow-100', 'text-yellow-800', 'px-2', 'py-1', 'rounded');
+          // 특별 기관 라벨 추가
+          const specialLabel = document.createElement('span');
+          specialLabel.className = 'text-xs font-bold bg-yellow-200 text-yellow-800 px-2 py-1 rounded ml-2';
+          specialLabel.textContent = '특별 관리 기관';
+          orgNameElement.appendChild(specialLabel);
+        }
+      }
+      
+      if (headerOrgNameElement) {
+        headerOrgNameElement.textContent = organizationName;
+        
+        // 특별 기관인 경우 스타일 적용
+        if (isSpecial) {
+          headerOrgNameElement.classList.add('bg-yellow-100', 'text-yellow-800', 'px-2', 'py-1', 'rounded');
+        }
+      }
+      
+      // 기본 활성 기간을 '매월'로 설정
+      window.activePeriod = 'monthly';
+      
+      // window.indicators 초기화 - 구글 시트 저장 기능에서 사용
+      window.indicators = [];
+      
+      // 초기 데이터 로드 - 기본적으로 매월 탭 선택 또는 URL 파라미터의 기간 사용
+      loadIndicators(urlParams.period, true);
+      
+      // 탭 메뉴 이벤트 리스너 설정
+      document.getElementById('tab-monthly').addEventListener('click', function() {
+        setActiveTab(this);
+        loadIndicators('매월', true);
+      });
+      
+      document.getElementById('tab-yearly').addEventListener('click', function() {
+        setActiveTab(this);
+        loadYearlyIndicators(true);
+      });
+      
+      // 저장 버튼 이벤트 리스너 추가
+      document.addEventListener('click', function(event) {
+        if (event.target && event.target.id === 'btn-save-data') {
+          saveToGoogleSheet();
+        }
+      });
+    });
+    
+    // 탭 메뉴 활성화 함수
+    function setActiveTab(tabElement) {
+      // 모든 탭에서 active 클래스 제거
+      document.querySelectorAll('.tab-item').forEach(tab => {
+        tab.classList.remove('active');
+      });
+      
+      // 클릭한 탭에 active 클래스 추가
+      tabElement.classList.add('active');
+      
+      // 활성화된 탭에 따라 전역 변수 설정
+      if (tabElement.id === 'tab-monthly') {
+        window.activePeriod = 'monthly';
+      } else if (tabElement.id === 'tab-yearly') {
+        window.activePeriod = 'yearly';
+      }
+    }
+    
+    // 지표 데이터 로드 함수
+    async function loadIndicators(period, forceRefresh = false) {
+      const loadStartTime = performance.now();
+      const sidebarErrorElement = document.getElementById('sidebar-error');
+      const sidebarErrorTextElement = document.getElementById('sidebar-error-text');
+      const indicatorsSidebarElement = document.getElementById('indicators-sidebar');
+      const noSelectionElement = document.getElementById('no-selection');
+      const indicatorDetailElement = document.getElementById('indicator-detail');
+      
+      // UI 초기화 - 로딩 상태 표시
+      sidebarErrorElement.classList.add('hidden');
+      indicatorsSidebarElement.innerHTML = '<div class="p-4 text-gray-500">지표 데이터 로딩 중...</div>';
+      noSelectionElement.classList.remove('hidden');
+      indicatorDetailElement.classList.add('hidden');
+      
+      try {
+        // URL 파라미터에서 가져온 기관 코드 사용
+        const orgCode = urlParams.orgCode;
+        console.log(`지표 데이터 로드 중... (기관: ${orgCode}, 기간: ${period})`);
+        
+        // 로컬 캐시 키 설정
+        const cacheKey = `monthly_indicators_${orgCode}_${period}`;
+        
+        // 캐시된 데이터 확인 (강제 새로고침이 아닌 경우)
+        if (!forceRefresh) {
+          const cachedData = localStorage.getItem(cacheKey);
+          if (cachedData) {
+            try {
+              const parsedData = JSON.parse(cachedData);
+              const cacheTimestamp = parsedData.timestamp || 0;
+              const currentTime = Date.now();
+              const cacheAge = currentTime - cacheTimestamp;
+              
+              console.log('캐시된 데이터가 있지만 항상 최신 데이터를 가져옵니다. (캐시 나이:', Math.round(cacheAge/1000/60), '분)');
+              // 캐시된 데이터는 사용하지 않고 항상 새로운 데이터를 가져옵니다
+            } catch (e) {
+              console.error('캐시된 데이터 파싱 오류:', e);
+            }
+          }
+        } else {
+          // 새로고침 시 로컬 스토리지 초기화
+          console.log('새로고침 요청으로 로컬 스토리지 초기화');
+          localStorage.removeItem('monthlyCheckData');
+          localStorage.removeItem(cacheKey);
+        }
+        
+        // API 엔드포인트 호출 - 새로고침 시 캠시 무시 옵션 추가
+        const fetchOptions = {};
+        if (forceRefresh) {
+          fetchOptions.cache = 'no-cache';
+          console.log('캠시를 무시하고 최신 데이터를 가져오는 중...');
+        }
+        
+        const fetchStartTime = performance.now();
+        const response = await fetch(`/api/sheet-test?period=${encodeURIComponent(period)}&orgCode=${encodeURIComponent(orgCode)}&t=${Date.now()}`, fetchOptions);
+        const fetchEndTime = performance.now();
+        console.log(`API 요청 완료 (${(fetchEndTime - fetchStartTime).toFixed(2)}ms)`);
+        
+        if (!response.ok) {
+          throw new Error(`API 요청 실패: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('API 응답 데이터 받음');
+
+        // 응답 구조 확인
+        if (!data) {
+          console.error('API 응답 데이터가 없습니다:', data);
+          const sidebarElement = document.getElementById('indicators-sidebar');
+          if (sidebarElement) {
+            sidebarElement.innerHTML = '<div class="p-4 text-red-500">데이터를 불러오는데 실패했습니다.</div>';
+          } else {
+            console.error('indicators-sidebar 요소를 찾을 수 없습니다.');
+          }
+          return;
+        }
+
+        // 데이터 처리 시작 시간 기록
+        const processStartTime = performance.now();
+        
+        // 지표 데이터 추출
+        let indicators = [];
+        
+        // 다양한 응답 구조 처리 - 최적화된 방식으로 처리
+        if (Array.isArray(data.data)) {
+          indicators = data.data;
+        } else if (data.data && data.data.indicators && Array.isArray(data.data.indicators)) {
+          indicators = data.data.indicators;
+        } else if (data.data && data.data.allData && Array.isArray(data.data.allData)) {
+          indicators = data.data.allData;
+        } else if (data.indicators && Array.isArray(data.indicators)) {
+          indicators = data.indicators;
+        } else {
+          console.error('지표 데이터를 찾을 수 없습니다:', data);
+          const sidebarElement = document.getElementById('indicators-sidebar');
+          if (sidebarElement) {
+            sidebarElement.innerHTML = '<div class="p-4 text-red-500">지표 데이터를 찾을 수 없습니다.</div>';
+          }
+          return;
+        }
+        
+        console.log(`추출된 지표 데이터 개수: ${indicators.length}`);
+        
+        // 주기에 맞는 데이터 필터링 - 성능 개선을 위해 상수 사용
+        const applyFiltering = true;
+        
+        if (applyFiltering && indicators.length > 0) {
+          // 필터링 시작 시간 기록
+          const filterStartTime = performance.now();
+          
+          // 필터링 적용 - 매월 지표인 경우 연중 지표를 제외
+          if (period === '매월') {
+            indicators = indicators.filter(item => {
+              const itemPeriod = (item.period || '').toLowerCase();
+              const itemCategory = (item.category || '').toLowerCase();
+              return (itemPeriod.includes('매월') || itemCategory.includes('매월')) && 
+                     !itemCategory.includes('연중') && !itemPeriod.includes('연중');
+            });
+          } 
+          // 다른 기간은 단순 일치 확인
+          else {
+            indicators = indicators.filter(item => {
+              const itemCategory = (item.category || '').toLowerCase();
+              const itemPeriod = (item.period || '').toLowerCase();
+              const periodLower = period.toLowerCase();
+              return (itemCategory.includes(periodLower) || itemPeriod.includes(periodLower));
+            });
+          }
+          
+          // 필터링 완료 시간 기록
+          const filterEndTime = performance.now();
+          console.log(`필터링 완료: ${indicators.length}개 지표 (${(filterEndTime - filterStartTime).toFixed(2)}ms)`);
+        }
+        
+        // 캐시에 저장
+        try {
+          const cacheKey = `monthly_indicators_${urlParams.orgCode}_${period}`;
+          localStorage.setItem(cacheKey, JSON.stringify({
+            indicators: indicators,
+            timestamp: Date.now()
+          }));
+          console.log('지표 데이터를 캐시에 저장했습니다.');
+        } catch (e) {
+          console.error('캐시 저장 오류:', e);
+        }
+
+        // 지표 데이터를 전역 변수에 저장 - 구글 시트 저장 기능에서 사용
+        window.indicators = indicators;
+        console.log(`window.indicators 설정 완료: ${indicators.length}개 지표`);
+        
+        // 지표 데이터 렌더링
+        const renderStartTime = performance.now();
+        renderIndicators(indicators);
+        const renderEndTime = performance.now();
+        console.log(`렌더링 완료 (${(renderEndTime - renderStartTime).toFixed(2)}ms)`);
+
+        // 첫 번째 지표 선택 (있는 경우)
+        if (indicators.length > 0) {
+          showIndicatorDetail(indicators[0]);
+          updateMonthlyCheckStatus(indicators[0]);
+        }
+        
+        // 탭 타이틀 업데이트
+        updateTabTitle(period);
+        window.activePeriod = 'monthly';
+        
+        // 전체 처리 시간 기록
+        const processEndTime = performance.now();
+        console.log(`전체 데이터 처리 완료 (${(processEndTime - processStartTime).toFixed(2)}ms)`);
+        console.log('-------------------------------------------');
+      } catch (error) {
+        console.error('지표 데이터 로드 중 오류:', error);
+        sidebarErrorTextElement.textContent = error.message;
+        sidebarErrorElement.classList.remove('hidden');
+      }
+    }
+    
+    // 탭 타이틀 업데이트 함수
+    function updateTabTitle(period) {
+      const statusTitle = document.querySelector('h2.text-lg.font-medium.text-gray-900.mb-4');
+      if (statusTitle) {
+        if (period === '매월') {
+          statusTitle.textContent = '매월 점검 지표 현황';
+        } else if (period === '연중점검') {
+          statusTitle.textContent = '연중 및 1~3월 점검 지표 현황';
+        }
+      }
+    }
+    
+    // 연중점검 데이터 로드 함수 (반기, 1~3월, 연중 점검 지표 함께 표시)
+    async function loadYearlyIndicators(forceRefresh = false) {
+      // 탭 타이틀 업데이트
+      document.querySelector('#tab-yearly').textContent = '연중점검 (1~3월 포함)';
+      
+      try {
+        // UI 초기화
+        const sidebarErrorElement = document.getElementById('sidebar-error');
+        const sidebarErrorTextElement = document.getElementById('sidebar-error-text');
+        const indicatorsSidebarElement = document.getElementById('indicators-sidebar');
+        const noSelectionElement = document.getElementById('no-selection');
+        const indicatorDetailElement = document.getElementById('indicator-detail');
+        
+        if (!sidebarErrorElement || !indicatorsSidebarElement || !noSelectionElement || !indicatorDetailElement) {
+          console.error('필요한 UI 요소를 찾을 수 없습니다.');
+          return;
+        }
+        
+        // UI 초기화
+        sidebarErrorElement.classList.add('hidden');
+        indicatorsSidebarElement.innerHTML = '<div class="p-4 text-gray-500">연중 점검 지표 로딩 중...</div>';
+        noSelectionElement.classList.remove('hidden');
+        indicatorDetailElement.classList.add('hidden');
+        
+        // URL 파라미터에서 가져온 기관 코드 사용
+        const orgCode = urlParams.orgCode;
+        console.log(`연중점검 지표 데이터 로드 중... (기관: ${orgCode})`);
+        
+        // 로컬 캐시 키 설정
+        const cacheKey = `yearly_indicators_${orgCode}`;
+        
+        // 캐시된 데이터 확인 (강제 새로고침이 아닌 경우)
+        if (!forceRefresh) {
+          const cachedData = localStorage.getItem(cacheKey);
+          if (cachedData) {
+            try {
+              const parsedData = JSON.parse(cachedData);
+              const cacheTimestamp = parsedData.timestamp || 0;
+              const currentTime = Date.now();
+              const cacheAge = currentTime - cacheTimestamp;
+              
+                  // 캐시된 데이터가 있지만 항상 최신 데이터를 가져옵니다
+              console.log('캐시된 데이터가 있지만 항상 최신 데이터를 가져옵니다. (캐시 나이:', Math.round(cacheAge/1000/60), '분)');
+            } catch (e) {
+              console.error('캐시된 데이터 파싱 오류:', e);
+            }
+          }
+        }
+        
+        // 새로고침 시 캐시 무시 옵션 추가
+        const fetchOptions = {};
+        if (forceRefresh) {
+          fetchOptions.cache = 'no-cache';
+          console.log('연중점검 데이터 - 캐시를 무시하고 최신 데이터를 가져오는 중...');
+        }
+        
+        // 타임스탬프 추가하여 캐시 무시
+        const timestamp = Date.now();
+        
+        // 모든 API 요청을 병렬로 실행
+        const [halfYearData, quarterData, yearlyData] = await Promise.all([
+          // 반기 점검 데이터
+          fetch(`/api/sheet-test?period=반기&orgCode=${encodeURIComponent(orgCode)}&t=${timestamp}`, fetchOptions)
+            .then(response => {
+              if (!response.ok) {
+                console.error(`반기 점검 데이터 API 요청 실패: ${response.status}`);
+                return { data: [] };
+              }
+              return response.json();
+            })
+            .catch(error => {
+              console.error('반기 점검 데이터 가져오기 오류:', error);
+              return { data: [] };
+            }),
+          
+          // 1~3월 점검 데이터
+          fetch(`/api/sheet-test?period=1~3월&orgCode=${encodeURIComponent(orgCode)}&t=${timestamp}`, fetchOptions)
+            .then(response => {
+              if (!response.ok) {
+                console.error(`1~3월 점검 데이터 API 요청 실패: ${response.status}`);
+                return { data: [] };
+              }
+              return response.json();
+            })
+            .catch(error => {
+              console.error('1~3월 점검 데이터 가져오기 오류:', error);
+              return { data: [] };
+            }),
+          
+          // 연중 점검 데이터
+          fetch(`/api/sheet-test?period=연중&orgCode=${encodeURIComponent(orgCode)}&t=${timestamp}`, fetchOptions)
+            .then(response => {
+              if (!response.ok) {
+                console.error(`연중 점검 데이터 API 요청 실패: ${response.status}`);
+                return { data: [] };
+              }
+              return response.json();
+            })
+            .catch(error => {
+              console.error('연중 점검 데이터 가져오기 오류:', error);
+              return { data: [] };
+            })
+        ]);
+        
+        console.log('데이터 로드 완료 - 병렬 처리');
+        
+        // 지표 데이터 추출
+        let halfYearIndicators = [];
+        let quarterIndicators = [];
+        let yearlyIndicators = [];
+        
+        // 반기 데이터 추출
+        if (halfYearData && halfYearData.data) {
+          if (Array.isArray(halfYearData.data)) {
+            halfYearIndicators = halfYearData.data;
+          } else if (halfYearData.data.indicators && Array.isArray(halfYearData.data.indicators)) {
+            halfYearIndicators = halfYearData.data.indicators;
+          } else if (halfYearData.data.allData && Array.isArray(halfYearData.data.allData)) {
+            halfYearIndicators = halfYearData.data.allData;
+          }
+        }
+        
+        // 1~3월 데이터 추출
+        if (quarterData && quarterData.data) {
+          if (Array.isArray(quarterData.data)) {
+            quarterIndicators = quarterData.data;
+          } else if (quarterData.data.indicators && Array.isArray(quarterData.data.indicators)) {
+            quarterIndicators = quarterData.data.indicators;
+          } else if (quarterData.data.allData && Array.isArray(quarterData.data.allData)) {
+            quarterIndicators = quarterData.data.allData;
+          }
+        }
+        
+        // 연중 데이터 추출
+        if (yearlyData && yearlyData.data) {
+          if (Array.isArray(yearlyData.data)) {
+            yearlyIndicators = yearlyData.data;
+          } else if (yearlyData.data.indicators && Array.isArray(yearlyData.data.indicators)) {
+            yearlyIndicators = yearlyData.data.indicators;
+          } else if (yearlyData.data.allData && Array.isArray(yearlyData.data.allData)) {
+            yearlyIndicators = yearlyData.data.allData;
+          }
+        }
+        
+        // 데이터 필터링 및 처리 시작 시간 기록
+        const filterStartTime = performance.now();
+        
+        // 반기 데이터 필터링 - 성능 개선을 위해 배열 생성 최소화
+        if (halfYearIndicators.length > 0 && (halfYearIndicators[0].category || halfYearIndicators[0].period)) {
+          halfYearIndicators = halfYearIndicators.filter(item => (item.category === '반기' || item.period === '반기'));
+        }
+        
+        // 1~3월 데이터 필터링
+        if (quarterIndicators.length > 0 && (quarterIndicators[0].category || quarterIndicators[0].period)) {
+          quarterIndicators = quarterIndicators.filter(item => (item.category === '1~3월' || item.period === '1~3월'));
+        }
+        
+        // 배열 합치기 전 각 배열 길이 로그
+        console.log(`필터링 후 데이터 개수: 반기(${halfYearIndicators.length}), 1~3월(${quarterIndicators.length}), 연중(${yearlyIndicators.length})`);
+        
+        // 세 배열 합치기 (반기, 1~3월, 연중) - 성능 개선을 위해 추가 필터링 없이 바로 합치기
+        const combinedIndicators = [...yearlyIndicators, ...halfYearIndicators, ...quarterIndicators];
+        
+        // 연중점검 지표로 필터링 - 연중 카테고리를 우선 검색
+        globalFilteredIndicators = combinedIndicators.filter(indicator => {
+          const category = (indicator.category || '').toLowerCase();
+          const period = (indicator.period || '').toLowerCase();
+          return category.includes('연중') || period.includes('연중');
+        });
+        
+        // 필터링 완료 시간 기록
+        const filterEndTime = performance.now();
+        console.log(`연중점검 데이터 필터링 완료 (${(filterEndTime - filterStartTime).toFixed(2)}ms)`);
+        
+        // 캐시에 저장
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify({
+            indicators: globalFilteredIndicators,
+            timestamp: Date.now()
+          }));
+          console.log('연중점검 데이터를 캐시에 저장했습니다.');
+        } catch (e) {
+          console.error('캐시 저장 오류:', e);
+        }
+        
+        // 활성 탭 설정
+        window.activePeriod = 'yearly';
+        
+        // 평가연계 지표 표시 처리
+        globalFilteredIndicators.forEach(indicator => {
+          const indicatorName = indicator.name || indicator.title || '';
+          // 평가연계 필드 확인 (여러 가능성 고려)
+          // 평가연계 값 확인 및 디버깅
+          const evalValue = indicator['평가연계'];
+          console.log(`${indicatorName} 평가연계 값:`, evalValue, typeof evalValue);
+          
+          // 평가연계 여부 확인 - 더 넓은 조건 적용
+          indicator.evaluationLinked = 
+            (evalValue === 'O') || 
+            (evalValue === true) || 
+            (evalValue === '예') || 
+            (evalValue && evalValue.toString().trim() !== '') || 
+            (indicator.name && indicator.name.includes('평가')) || 
+            (indicator['평가'] === '예') || 
+            (indicator['평가'] === true) || 
+            evaluationLinkedIndicators.includes(indicatorName);
+          
+          // 평가연계 지표로 강제 설정 (테스트용)
+          if (indicator.id === 'I005' || indicator.id === 'I006') {
+            indicator.evaluationLinked = true;
+            console.log('평가연계 강제 설정:', indicator.id, indicator.name);
+          }
+          
+          // 디버깅: 평가연계 여부 출력
+          console.log(`${indicatorName} 평가연계 여부:`, indicator.evaluationLinked);
+        });
+        
+        // 사이드바 컨테이너 찾기
+        let sidebarElement = document.getElementById('indicators-sidebar');
+        if (!sidebarElement) {
+          console.error('지표 사이드바 요소를 찾을 수 없습니다.');
+          return;
+        }
+        
+        // 사이드바 초기화
+        sidebarElement.innerHTML = '';
+        
+        // 필터링된 지표가 없는 경우 처리
+        if (!globalFilteredIndicators || globalFilteredIndicators.length === 0) {
+          sidebarElement.innerHTML = '<div class="p-4 text-gray-500">연중 점검 지표가 없습니다.</div>';
+          return;
+        }
+        
+        // 디버깅: 첫 번째 지표 데이터 출력
+        if (globalFilteredIndicators.length > 0) {
+          console.log('첫 번째 지표 데이터:', JSON.stringify(globalFilteredIndicators[0], null, 2));
+        }
+        
+        // 지표 데이터 렌더링 (필터링된 지표 사용)
+        renderIndicators(globalFilteredIndicators);
+        
+        // 첫 번째 지표 선택 (있는 경우)
+        if (globalFilteredIndicators.length > 0) {
+          showIndicatorDetail(globalFilteredIndicators[0]);
+          updateMonthlyCheckStatus(globalFilteredIndicators[0]);
+        }
+        
+        // 탭 타이틀 업데이트
+        updateTabTitle('연중점검');
+        
+      } catch (error) {
+        console.error('연중점검 지표 데이터 로드 중 오류:', error);
+        const sidebarErrorElement = document.getElementById('sidebar-error');
+        const sidebarErrorTextElement = document.getElementById('sidebar-error-text');
+        
+        if (sidebarErrorElement && sidebarErrorTextElement) {
+          sidebarErrorTextElement.textContent = error.message;
+          sidebarErrorElement.classList.remove('hidden');
+        }
+      }
+    } // loadIndicators 함수 종료
+      
+    // 지표 렌더링 함수
+    function renderIndicators(indicators) {
+      if (!indicators || indicators.length === 0) {
+        console.log('표시할 지표가 없습니다.');
+        return;
+      }
+      
+      // 사이드바 컨테이너 찾기
+      const sidebarContainer = document.getElementById('indicators-sidebar');
+      if (!sidebarContainer) {
+        console.error('지표 사이드바 요소를 찾을 수 없습니다.');
+        return;
+      }
+      
+      // 사이드바 초기화 제거 - 호출하는 코드에서 이미 초기화했으므로 중복 제거
+      
+      // 사이드바에 지표 목록 렌더링
+      indicators.forEach((indicator, index) => {
+        const listItem = document.createElement('div');
+        const indicatorName = indicator.name || indicator.title || '제목 없음';
+        
+        // 평가연계 지표인지 확인 (evaluationLinked 속성 사용)
+        const isEvaluationLinked = indicator.evaluationLinked || false;
+        
+        // 특화 지표인지 확인 (이름에 '(특화)'가 포함되어 있는지)
+        const isSpecializedIndicator = indicatorName.includes('(특화)');
+        
+        // 특별 기관 관련 지표 여부 확인
+        const orgName = urlParams.orgName ? decodeURIComponent(urlParams.orgName) : '';
+        const isSpecialOrg = isSpecialOrganization(orgName);
+        
+        // 특화 지표인 경우 (현재 스타일 유지)
+        if (isSpecializedIndicator) {
+          listItem.className = 'sidebar-item p-3 border-b border-gray-200 hover:bg-gray-100 cursor-pointer bg-yellow-50';
+          listItem.innerHTML = `
+            <div class="font-medium text-yellow-700">${indicatorName} <span class="text-xs font-bold bg-yellow-600 text-white px-2 py-1 rounded">특화</span></div>
+            <div class="text-sm text-gray-600">${indicator.id || ''}</div>
+          `;
+        } 
+        // 평가연계 지표인 경우 (밑줄로 구분)
+        else if (isEvaluationLinked && !isSpecializedIndicator) {
+          listItem.className = 'sidebar-item p-3 border-b border-gray-200 hover:bg-gray-100 cursor-pointer evaluation-indicator';
+          listItem.innerHTML = `
+            <div class="font-medium">${indicatorName} <span class="text-xs font-bold bg-blue-600 text-white px-2 py-1 rounded">평가연계</span></div>
+            <div class="text-sm text-gray-600">${indicator.id || ''}</div>
+          `;
+          // 평가연계 지표 스타일 직접 적용
+          listItem.style.borderBottom = '2px solid #3b82f6';
+          listItem.style.textDecoration = 'underline';
+          listItem.style.textDecorationColor = '#3b82f6';
+          listItem.style.textDecorationThickness = '2px';
+        }
+        // 특별 기관의 경우
+        else if (isSpecialOrg) {
+          listItem.className = 'sidebar-item p-3 border-b border-gray-200 hover:bg-gray-100 cursor-pointer bg-yellow-50';
+          listItem.innerHTML = `
+            <div class="font-medium text-yellow-700">${indicatorName}</div>
+            <div class="text-sm text-gray-600">${indicator.id || ''}</div>
+          `;
+        }
+        // 그 외의 경우
+        else {
+          listItem.className = 'sidebar-item p-3 border-b border-gray-200 hover:bg-gray-100 cursor-pointer';
+          listItem.innerHTML = `
+            <div class="font-medium">${indicatorName}</div>
+            <div class="text-sm text-gray-600">${indicator.id || ''}</div>
+          `;
+        }
+        
+        // 지표 클릭 이벤트 처리
+        listItem.addEventListener('click', function() {
+          // 사이드바의 모든 아이템에서 active 클래스 제거
+          document.querySelectorAll('.sidebar-item').forEach(item => {
+            item.classList.remove('active');
+          });
+          
+          // 현재 선택한 아이템에 active 클래스 추가
+          this.classList.add('active');
+          
+          // 지표 상세 정보 표시
+          showIndicatorDetail(indicator);
+        });
+        
+        // 첫 번째 지표를 기본으로 선택
+        if (index === 0) {
+          listItem.classList.add('active');
+          showIndicatorDetail(indicator);
+        }
+        
+        // 사이드바에 아이템 추가
+        sidebarContainer.appendChild(listItem);
+      });
+      
+      // 지표 목록 표시
+      const indicatorsListElement = document.getElementById('indicators-list');
+      if (indicatorsListElement) {
+        indicatorsListElement.classList.remove('hidden');
+      }
+    }
+    
+    // 전역 변수 선언 - 필터링된 지표 목록
+    let globalFilteredIndicators = [];
+    
+    // 평가연계 지표 목록 정의
+    const evaluationLinkedIndicators = [
+      '중간관리자 배치 현황',
+      '노인맞춤돌봄협의체 참석',
+      '실무협의회 참석',
+      '이용자 권익 보호 규정 마련',
+      '이용자 권익 보호 교육 실시',
+      '이용자 민원접수 및 처리과정 문서화',
+      '이용자 안전관리 대응체계 마련',
+      '혹서기·혹한기 보호대책 안전확인 조치',
+      '(일반 및 중점)선정조사일 준수',
+      '(특화)선정조사일 준수',
+      '이용대기자 관리',
+      '서비스 중지 대상자 모니터링',
+      '(일반 및 중점)서비스 점검',
+      '(일반 및 중점)서비스 재사정',
+      '(특화)서비스 재사정',
+      '(일반 및 중점)서비스 종결처리',
+      '(특화)서비스 종결처리',
+      '(일반 및 중점)사후관리',
+      '(특화)사후관리'
+    ];
+    
+    // 월별 점검 상태 로드 함수
+    function loadMonthlyCheckStatus(indicatorId, forceRefresh = false) {
+      console.log(`월별 점검 상태 로드 시작 (${indicatorId})`);
+      
+      if (!indicatorId) {
+        console.error('지표 ID가 없습니다.');
+        return;
+      }
+      
+      // 캐시된 데이터 확인
+      const cachedData = window.indicatorStatusCache?.[indicatorId];
+      
+      if (cachedData && !forceRefresh) {
+        console.log('캐시된 월별 점검 상태 데이터 사용:', cachedData);
+        updateMonthlyCheckStatus(cachedData);
+        return;
+      }
+      
+      // API 호출을 통해 최신 데이터 가져오기
+      console.log(`월별 점검 상태 API 호출 (${indicatorId})`);
+      
+      // 현재 선택된 기관 정보 가져오기
+      const orgName = urlParams.orgName ? decodeURIComponent(urlParams.orgName) : '';
+      const orgCode = urlParams.orgCode || '';
+      
+      // API 호출 URL 구성
+      const apiUrl = `/api/indicator-status?indicatorId=${indicatorId}&orgName=${encodeURIComponent(orgName)}&orgCode=${orgCode}`;
+      
+      // API 호출
+      fetch(apiUrl)
+        .then(response => response.json())
+        .then(data => {
+          console.log('월별 점검 상태 데이터 수신:', data);
+          
+          if (data.error) {
+            console.error('월별 점검 상태 로드 오류:', data.error);
+            return;
+          }
+          
+          // 캐시에 데이터 저장
+          if (!window.indicatorStatusCache) {
+            window.indicatorStatusCache = {};
+          }
+          
+          window.indicatorStatusCache[indicatorId] = data;
+          
+          // 월별 점검 상태 업데이트
+          updateMonthlyCheckStatus(data);
+        })
+        .catch(error => {
+          console.error('월별 점검 상태 로드 중 오류 발생:', error);
+        });
+    }
+    
+    // 연중점검 상태 로드 함수
+    function loadYearRoundCheckStatus(indicatorId, forceRefresh = false) {
+      console.log(`연중점검 상태 로드 시작 (${indicatorId})`);
+      
+      if (!indicatorId) {
+        console.error('지표 ID가 없습니다.');
+        return;
+      }
+      
+      // 캐시된 데이터 확인
+      const cachedData = window.indicatorStatusCache?.[indicatorId];
+      
+      if (cachedData && !forceRefresh) {
+        console.log('캐시된 연중점검 상태 데이터 사용:', cachedData);
+        updateYearRoundCheckStatus(cachedData);
+        return;
+      }
+      
+      // API 호출을 통해 최신 데이터 가져오기
+      console.log(`연중점검 상태 API 호출 (${indicatorId})`);
+      
+      // 현재 선택된 기관 정보 가져오기
+      const orgName = urlParams.orgName ? decodeURIComponent(urlParams.orgName) : '';
+      const orgCode = urlParams.orgCode || '';
+      
+      // API 호출 URL 구성 (월별 점검과 동일한 API 사용)
+      const apiUrl = `/api/indicator-status?indicatorId=${indicatorId}&orgName=${encodeURIComponent(orgName)}&orgCode=${orgCode}`;
+      
+      // API 호출
+      fetch(apiUrl)
+        .then(response => response.json())
+        .then(data => {
+          console.log('연중점검 상태 데이터 수신:', data);
+          
+          if (data.error) {
+            console.error('연중점검 상태 로드 오류:', data.error);
+            return;
+          }
+          
+          // 캐시에 데이터 저장
+          if (!window.indicatorStatusCache) {
+            window.indicatorStatusCache = {};
+          }
+          
+          window.indicatorStatusCache[indicatorId] = data;
+          
+          // 연중점검 상태 업데이트
+          updateYearRoundCheckStatus(data);
+        })
+        .catch(error => {
+          console.error('연중점검 상태 로드 중 오류 발생:', error);
+        });
+    }
+    
+    // 지표 렌더링 함수
+    function renderIndicators(indicators) {
+      if (!indicators || indicators.length === 0) {
+        console.log('표시할 지표가 없습니다.');
+        return;
+      }
+      
+      // 사이드바 컨테이너 찾기
+      const sidebarContainer = document.getElementById('indicators-sidebar');
+      if (!sidebarContainer) {
+        console.error('사이드바 컨테이너를 찾을 수 없습니다.');
+        return;
+      }
+      
+      // 사이드바 초기화
+      sidebarContainer.innerHTML = '';
+      
+      // 사이드바 아이템 생성
+      indicators.forEach((indicator, index) => {
+        const listItem = document.createElement('li');
+        
+        // 특화/평가 연계 항목 확인
+        const isSpecialIndicator = indicator.특화연계 === '예' || 
+                                 indicator.특화 === '예' || 
+                                 (indicator.name && indicator.name.includes('특화')) || 
+                                 (indicator.지표명 && indicator.지표명.includes('특화'));
+        
+        const isEvaluationIndicator = indicator.평가연계 === '예' || 
+                                    indicator.평가 === '예' || 
+                                    (indicator.name && indicator.name.includes('평가')) || 
+                                    (indicator.지표명 && indicator.지표명.includes('평가'));
+        
+        // 기본 클래스 설정
+        let itemClass = 'sidebar-item p-4 cursor-pointer rounded-lg mb-2 shadow-sm hover:shadow-md transition-all';
+        
+        // 특화/평가 연계 항목에 따른 클래스 추가
+        if (isSpecialIndicator) {
+          itemClass += ' special-indicator';
+        } else if (isEvaluationIndicator) {
+          itemClass += ' evaluation-indicator';
+        }
+        
+        listItem.className = itemClass;
+        listItem.dataset.indicatorId = indicator.id || index.toString();
+        
+        // 상단 컨테이너 (이름 및 뱃지)
+        const topContainer = document.createElement('div');
+        topContainer.className = 'flex items-center justify-between mb-2';
+        
+        // 이름 및 뱃지 컨테이너
+        const nameContainer = document.createElement('div');
+        nameContainer.className = 'flex items-center';
+        
+        // 지표 이름
+        const nameElement = document.createElement('span');
+        nameElement.className = 'font-medium text-gray-900';
+        nameElement.textContent = indicator.name || indicator.지표명 || '이름 없음';
+        nameContainer.appendChild(nameElement);
+        
+        // 특화/평가 뱃지 추가
+        if (isSpecialIndicator) {
+          const specialBadge = document.createElement('span');
+          specialBadge.className = 'special-badge ml-2';
+          specialBadge.textContent = '특화';
+          nameContainer.appendChild(specialBadge);
+        } else if (isEvaluationIndicator) {
+          const evalBadge = document.createElement('span');
+          evalBadge.className = 'evaluation-badge ml-2';
+          evalBadge.textContent = '평가';
+          nameContainer.appendChild(evalBadge);
+        }
+        
+        // 카테고리 뱃지
+        const categoryBadge = document.createElement('span');
+        categoryBadge.className = 'text-xs px-2 py-1 bg-gray-100 rounded-full';
+        categoryBadge.textContent = indicator.category || indicator.카테고리 || indicator.period || indicator.기간 || '';
+        
+        // 상단 컨테이너에 요소 추가
+        topContainer.appendChild(nameContainer);
+        topContainer.appendChild(categoryBadge);
+        
+        // 중간 정보 컨테이너 (ID, 코드, 기간)
+        const infoContainer = document.createElement('div');
+        infoContainer.className = 'text-xs text-gray-500 mb-2';
+        infoContainer.innerHTML = `
+          <div class="flex justify-between">
+            <span>ID: ${indicator.id || 'N/A'}</span>
+            <span>코드: ${indicator.code || indicator.코드 || 'N/A'}</span>
+          </div>
+        `;
+        
+        // 하단 점검방법 컨테이너
+        const checkMethodDiv = document.createElement('div');
+        checkMethodDiv.className = 'flex justify-between items-center mt-2 pt-2 border-t border-gray-100';
+        
+        // 점검방법 라벨
+        const checkMethodLabel = document.createElement('div');
+        checkMethodLabel.className = 'text-xs text-gray-500';
+        
+        // 점검방법 값
+        const checkMethodValue = document.createElement('div');
+        checkMethodValue.className = 'text-xs font-medium px-2 py-1 rounded';
+        
+        // 점검자료 표시
+        if (indicator.온라인점검 === '필수' || indicator.온라인점검 === '우선') {
+          checkMethodLabel.textContent = '온라인점검';
+          checkMethodValue.textContent = indicator.온라인점검;
+          checkMethodValue.className += ' bg-blue-100 text-blue-700';
+        } else if (indicator.현장점검 === '필수' || indicator.현장점검 === '우선') {
+          checkMethodLabel.textContent = '현장점검';
+          checkMethodValue.textContent = indicator.현장점검;
+          checkMethodValue.className += ' bg-green-100 text-green-700';
+        } else {
+          checkMethodLabel.textContent = '점검방법';
+          checkMethodValue.textContent = '선택';
+          checkMethodValue.className += ' bg-gray-100 text-gray-700';
+        }
+        
+        checkMethodDiv.appendChild(checkMethodLabel);
+        checkMethodDiv.appendChild(checkMethodValue);
+        
+        // 요소 조립
+        listItem.appendChild(topContainer);
+        listItem.appendChild(infoContainer);
+        listItem.appendChild(checkMethodDiv);
+        
+        sidebarContainer.appendChild(listItem);
+        
+        // 지표 클릭 이벤트 추가
+        listItem.addEventListener('click', function() {
+          // 사이드바의 모든 아이템에서 active 클래스 제거
+          document.querySelectorAll('.sidebar-item').forEach(item => {
+            item.classList.remove('active');
+          });
+          
+          // 현재 선택한 아이템에 active 클래스 추가
+          this.classList.add('active');
+          
+          // 지표 상세 정보 표시
+          showIndicatorDetail(indicator);
+        });
+        
+        // 첫 번째 지표를 기본으로 선택
+        if (index === 0) {
+          listItem.classList.add('active');
+          showIndicatorDetail(indicator);
+        }
+      });
+      
+      // 지표 목록 표시
+      const indicatorsListElement = document.getElementById('indicators-list');
+      if (indicatorsListElement) {
+        indicatorsListElement.classList.remove('hidden');
+      }
+    }
+
+    // 지표 상세 정보 표시 함수
+    function showIndicatorDetail(indicator) {
+      const indicatorName = indicator.name || indicator.title || '제목 없음';
+      const isEvaluationLinked = evaluationLinkedIndicators.includes(indicatorName);
+      // 전역 객체에 함수 명시적 할당
+      window.showIndicatorDetail = showIndicatorDetail;
+      if (!indicator) {
+        console.error('표시할 지표 데이터가 없습니다.');
+        return;
+      }
+      
+      // 필요한 UI 요소 찾기
+      const detailContainer = document.getElementById('indicator-detail');
+      const noSelectionElement = document.getElementById('no-selection');
+      const detailErrorElement = document.getElementById('detail-error');
+      
+      if (!detailContainer || !noSelectionElement) {
+        console.error('필요한 UI 요소를 찾을 수 없습니다.');
+        return;
+      }
+      
+      // UI 초기화
+      noSelectionElement.classList.add('hidden');
+      if (detailErrorElement) detailErrorElement.classList.add('hidden');
+      detailContainer.classList.remove('hidden');
+      
+      // 지표 ID 추출 및 전역 변수에 저장
+      const indicatorId = indicator.id || indicator.지표ID;
+      
+      // 전역 변수에 현재 지표 ID와 지표 데이터 저장
+      window.indicatorId = indicatorId;
+      window.currentIndicatorData = indicator;
+      
+      console.log('현재 지표 데이터:', indicator);
+      console.log('현재 지표 ID:', indicatorId);
+      
+      // 특화/평가 연계 항목 확인
+      const isSpecialIndicator = indicator.특화연계 === '예' || 
+                                indicator.특화 === '예' || 
+                                (indicator.name && indicator.name.includes('특화')) || 
+                                (indicator.지표명 && indicator.지표명.includes('특화'));
+      
+      const isEvaluationIndicator = indicator.평가연계 === '예' || 
+                                   indicator.평가 === '예' || 
+                                   (indicator.name && indicator.name.includes('평가')) || 
+                                   (indicator.지표명 && indicator.지표명.includes('평가'));
+      
+      // 연중점검 여부 디버깅
+      console.log('연중점검 확인:', indicator.name, indicator.category, indicator.period);
+      
+      // 연중점검 여부 확인 함수 정의
+      const checkIsYearRound = (data) => {
+        return data.category === '연중' || 
+          data.period === '연중' || 
+          data.category === '연중점검' || 
+          data.period === '연중점검' || 
+          (data.category && data.category.includes('연중')) || 
+          (data.period && data.period.includes('연중'));
+      };
+      
+      // 연중점검 여부를 명확히 표시
+      const indicatorIsYearRound = checkIsYearRound(indicator);
+      console.log(`지표 ${indicator.id} ${indicator.name}의 연중점검 여부:`, indicatorIsYearRound);
+      
+      // 지표 상세 정보 구성
+      let detailHTML = `
+        <div class="p-6">
+          <div class="flex items-center justify-between mb-6">
+            <h2 class="text-xl font-bold text-gray-900 flex items-center">
+              ${indicator.name || indicator.지표명 || '지표 정보 없음'}
+              ${isSpecialIndicator ? '<span class="special-badge ml-2">특화연계</span>' : ''}
+              ${isEvaluationIndicator ? '<span class="evaluation-badge ml-2">평가연계</span>' : ''}
+            </h2>
+            <div class="text-sm text-gray-500">
+              ${indicator.period || indicator.기간 || ''} 점검
+            </div>
+          </div>
+          
+          <div class="${isSpecialIndicator || isEvaluationIndicator ? 'bg-yellow-50 border-l-4 border-yellow-400' : 'bg-gray-50'} p-4 rounded-lg mb-6 shadow-sm">
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <p class="text-sm ${isSpecialIndicator || isEvaluationIndicator ? 'text-yellow-800' : 'text-gray-800'}"><span class="font-medium">지표 ID:</span> ${indicator.id || indicator.지표ID || 'N/A'}</p>
+                <p class="text-sm ${isSpecialIndicator || isEvaluationIndicator ? 'text-yellow-800' : 'text-gray-800'}"><span class="font-medium">코드:</span> ${indicator.code || indicator.코드 || 'N/A'}</p>
+              </div>
+              <div>
+                <p class="text-sm ${isSpecialIndicator || isEvaluationIndicator ? 'text-yellow-800' : 'text-gray-800'}"><span class="font-medium">카테고리:</span> ${indicator.category || indicator.카테고리 || 'N/A'}</p>
+                <p class="text-sm ${isSpecialIndicator || isEvaluationIndicator ? 'text-yellow-800' : 'text-gray-800'}"><span class="font-medium">기간:</span> ${indicator.period || indicator.기간 || 'N/A'}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div class="mb-6">
+            <h3 class="text-lg font-medium text-gray-900 mb-2">점검 자료</h3>
+            <p class="text-gray-700">${indicator.검토자료 || indicator.reviewMaterials || '점검 자료 정보가 없습니다.'}</p>
+          </div>
+          
+          <div class="mb-6">
+            <h3 class="text-lg font-medium text-gray-900 mb-2">점검 기준</h3>
+            <p class="text-gray-700">${indicator.description || indicator.설명 || '점검 기준 정보가 없습니다.'}</p>
+          </div>
+          
+          <div class="mb-6 ${indicatorIsYearRound ? '' : 'hidden'}">
+            <h3 class="text-lg font-medium text-gray-900 mb-2">연중점검 현황</h3>
+            <div class="grid grid-cols-3 gap-2 mt-4">
+      `;
+      
+      // 연중점검인 경우 상반기, 하반기, 최종점검 버튼 추가
+      if (indicatorIsYearRound) {
+        const checkPoints = ['상반기', '하반기', '최종점검'];
+        checkPoints.forEach((point, index) => {
+          detailHTML += `
+            <div class="text-center">
+              <div class="text-xs text-gray-500 mb-1">${point}</div>
+              <button id="yearly-${index + 1}-button" class="yearly-check bg-gray-300 text-gray-700 w-full py-2 px-4 text-sm">미점검</button>
+            </div>
+          `;
+        });
+      }
+      
+      // 월별 모니터링 섹션 추가 (연중점검이 아닌 경우에만 표시)
+      detailHTML += `
+        </div>
+      </div>
+      
+      <div class="mb-6 ${indicatorIsYearRound ? 'hidden' : ''}" id="monthly-monitoring-section">
+        <h3 class="text-lg font-medium text-gray-900 mb-2">월별 모니터링 현황</h3>
+        <div class="grid grid-cols-12 gap-2 mt-4" id="monthly-monitoring">
+      `;
+      
+      // 일반 월별 점검인 경우 기존 방식대로 버튼 추가 (연중점검이 아닌 경우에만)
+      if (!indicatorIsYearRound) {
+        for (let month = 1; month <= 12; month++) {
+          detailHTML += `
+            <div class="text-center">
+              <div class="text-xs text-gray-500 mb-1">${month}월</div>
+              <button id="month-${month}-button" class="month-check bg-gray-300 text-gray-700 w-full py-1 px-2 text-xs">미점검</button>
+            </div>
+          `;
+        }
+      }
+      
+      // 점검 상태 설명 추가
+      detailHTML += `
+            </div>
+            <div class="text-xs text-gray-500 mt-2">* 버튼 클릭하여 미점검 → 충족 → 미충족 순서로 상태를 변경할 수 있습니다.</div>
+          </div>
+          
+          <!-- 의견 섹션 추가 -->
+          <div class="mb-6">
+            <h3 class="text-lg font-medium text-gray-900 mb-2">의견</h3>
+            <textarea id="comment-text" class="w-full p-2 border border-gray-300 rounded h-24" placeholder="의견 또는 메모를 입력하세요">${indicator.comment || ''}</textarea>
+          </div>
+          
+          <div class="flex justify-end mt-6">
+            <button id="btn-save-data" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg shadow-sm">
+              저장하기
+            </button>
+          </div>
+        </div>
+      `;
+      
+      // 상세 정보 표시
+      detailContainer.innerHTML = detailHTML;
+      
+      // 연중점검 여부 확인 - 이미 정의된 checkIsYearRound 함수 사용
+      const detailIsYearRound = checkIsYearRound(indicator);
+      console.log(`지표 상세 표시: ${indicator.name}의 연중점검 여부:`, detailIsYearRound);
+      
+      // 연중점검 여부에 따라 UI 요소 표시/숨김 처리 추가
+      const monthlyMonitoringSection = document.getElementById('monthly-monitoring-section');
+      
+      // querySelector에서 :contains는 표준이 아니므로 다른 방식으로 찾기
+      let yearlyMonitoringSection = null;
+      const sections = document.querySelectorAll('.mb-6');
+      sections.forEach(section => {
+        const heading = section.querySelector('h3');
+        if (heading && heading.textContent.includes('연중점검 현황')) {
+          yearlyMonitoringSection = section;
+        }
+      });
+      
+      if (detailIsYearRound) {
+        // 연중점검인 경우 월별 모니터링 UI 숨김
+        if (monthlyMonitoringSection) monthlyMonitoringSection.classList.add('hidden');
+        if (yearlyMonitoringSection) yearlyMonitoringSection.classList.remove('hidden');
+      } else {
+        // 일반 지표인 경우 월별 모니터링 UI 표시
+        if (monthlyMonitoringSection) monthlyMonitoringSection.classList.remove('hidden');
+        if (yearlyMonitoringSection) yearlyMonitoringSection.classList.add('hidden');
+      }
+      
+      // 모니터링현황 데이터 처리 (K열) - 연중점검이 아닌 경우에만 처리
+      if (!detailIsYearRound) {
+        if (indicator.monthlyStatus) {
+          console.log('월별 상태 데이터 확인 (monthlyStatus):', indicator.monthlyStatus);
+          console.log('월별 상태 데이터 타입:', typeof indicator.monthlyStatus);
+        } else if (indicator.monitoringStatus) {
+          console.log('월별 상태 데이터 확인 (monitoringStatus):', indicator.monitoringStatus);
+          indicator.monthlyStatus = indicator.monitoringStatus;
+        } else if (indicator.모니터링현황) {
+          console.log('월별 상태 데이터 확인 (모니터링현황):', indicator.모니터링현황);
+          indicator.monthlyStatus = indicator.모니터링현황;
+        } else {
+          console.log('월별 상태 데이터가 없습니다.');
+        }
+      }
+      
+      if (detailIsYearRound) {
+        // 연중점검 지표인 경우 연중점검 상태 로드
+        console.log('연중점검 지표 감지, 연중점검 상태 로드 함수 호출:', indicatorId);
+        loadYearlyCheckStatus(indicatorId, true); // forceRefresh=true로 설정하여 항상 최신 데이터 가져오기
+      } else {
+        // 일반 지표인 경우 월별 점검 상태 로드
+        console.log('일반 지표 감지, 월별 점검 상태 로드 함수 호출:', indicatorId);
+        loadMonthlyCheckStatus(indicatorId, true); // forceRefresh=true로 설정하여 항상 최신 데이터 가져오기
+      }
+    }
+    
+    // 연중점검 상태 로드 함수
+    function loadYearlyCheckStatus(indicatorId, forceRefresh = false) {
+      console.log(`연중점검 상태 로드 시작: 지표 ID ${indicatorId}`);
+      
+      // 로컬 스토리지에서 연중점검 데이터 가져오기
+      let yearlyCheckData = {};
+      const storedData = localStorage.getItem('yearlyCheckData');
+      
+      if (storedData) {
+        try {
+          yearlyCheckData = JSON.parse(storedData);
+          console.log('로컬 스토리지에서 연중점검 데이터 가져옴:', yearlyCheckData);
+        } catch (e) {
+          console.error('로컬 스토리지 데이터 파싱 오류:', e);
+          yearlyCheckData = {};
+        }
+      }
+      
+      // 캐시된 데이터가 있고 강제 새로고침이 아닌 경우 캐시 데이터 사용
+      if (yearlyCheckData[indicatorId] && !forceRefresh) {
+        console.log(`지표 ${indicatorId}의 캐시된 연중점검 데이터 사용:`, yearlyCheckData[indicatorId]);
+        updateYearlyCheckStatusUI(indicatorId, yearlyCheckData[indicatorId]);
+        return;
+      }
+      
+      // API에서 연중점검 데이터 가져오기
+      fetch(`/api/indicators/${indicatorId}/yearly-status`)
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`연중점검 상태 로드 실패: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          console.log(`지표 ${indicatorId}의 연중점검 상태 로드 성공:`, data);
+          
+          // 데이터 처리 및 UI 업데이트
+          const yearlyStatus = data.yearlyStatus || {};
+          
+          // 로컬 스토리지 업데이트
+          yearlyCheckData[indicatorId] = yearlyStatus;
+          localStorage.setItem('yearlyCheckData', JSON.stringify(yearlyCheckData));
+          
+          // UI 업데이트
+          updateYearlyCheckStatusUI(indicatorId, yearlyStatus);
+        })
+        .catch(error => {
+          console.error(`연중점검 상태 로드 오류:`, error);
+          
+          // 오류 발생 시 기본 상태로 UI 업데이트
+          updateYearlyCheckStatusUI(indicatorId, {});
+        });
+    }
+    
+    // 연중점검 상태 UI 업데이트 함수
+    function updateYearlyCheckStatusUI(indicatorId, yearlyStatus) {
+      console.log(`지표 ${indicatorId}의 연중점검 상태 UI 업데이트:`, yearlyStatus);
+      
+      // 연중점검 버튼 요소 가져오기
+      const yearlyCheckButtons = document.querySelectorAll('.yearly-check');
+      
+      // 기본적으로 모든 버튼을 미점검 상태로 초기화
+      yearlyCheckButtons.forEach(button => {
+        button.classList.remove('bg-green-500', 'bg-red-500', 'text-white');
+        button.classList.add('bg-gray-300', 'text-gray-700');
+        button.textContent = '미점검';
+      });
+      
+      // 연중점검 상태가 있는 경우 UI 업데이트
+      if (yearlyStatus && Object.keys(yearlyStatus).length > 0) {
+        // 상반기, 하반기, 최종점검 상태 업데이트
+        const checkPoints = ['1', '2', '3']; // 1: 상반기, 2: 하반기, 3: 최종점검
+        
+        checkPoints.forEach((point, index) => {
+          const status = yearlyStatus[point];
+          const button = document.getElementById(`yearly-${index + 1}-button`);
+          
+          if (!button) return;
+          
+          if (status === 'fulfilled') {
+            button.classList.remove('bg-gray-300', 'bg-red-500', 'text-gray-700');
+            button.classList.add('bg-green-500', 'text-white');
+            button.textContent = '충족';
+          } else if (status === 'unfulfilled') {
+            button.classList.remove('bg-gray-300', 'bg-green-500', 'text-gray-700');
+            button.classList.add('bg-red-500', 'text-white');
+            button.textContent = '미충족';
+          }
+        });
+      }
+    }
+    
+    // 연중점검 상태 업데이트 함수
+    function updateYearlyCheckStatus(indicatorData) {
+      console.log('연중점검 상태 업데이트 시작:', indicatorData);
+      
+      if (!indicatorData) return;
+      
+      // 연중점검 상태 데이터 확인
+      const yearlyStatus = indicatorData.yearlyStatus || {};
+      console.log('연중점검 상태 데이터:', yearlyStatus);
+      
+      // 연중점검 버튼 이벤트 리스너 설정
+      const yearlyCheckButtons = document.querySelectorAll('.yearly-check');
+      
+      yearlyCheckButtons.forEach((button, index) => {
+        // 기존 이벤트 리스너 제거
+        const newButton = button.cloneNode(true);
+        button.parentNode.replaceChild(newButton, button);
+        
+        // 새 이벤트 리스너 추가
+        newButton.addEventListener('click', function() {
+          const point = index + 1; // 1: 상반기, 2: 하반기, 3: 최종점검
+          const currentStatus = yearlyStatus[point] || 'unchecked';
+          
+          let newStatus;
+          if (currentStatus === 'unchecked' || currentStatus === 'unfulfilled') {
+            newStatus = 'fulfilled';
+          } else {
+            newStatus = 'unfulfilled';
+          }
+          
+          // UI 업데이트
+          if (newStatus === 'fulfilled') {
+            newButton.classList.remove('bg-gray-300', 'bg-red-500', 'text-gray-700');
+            newButton.classList.add('bg-green-500', 'text-white');
+            newButton.textContent = '충족';
+          } else {
+            newButton.classList.remove('bg-gray-300', 'bg-green-500', 'text-gray-700');
+            newButton.classList.add('bg-red-500', 'text-white');
+            newButton.textContent = '미충족';
+          }
+          
+          // 상태 업데이트
+          yearlyStatus[point] = newStatus;
+          
+          // 로컬 스토리지 업데이트
+          let yearlyCheckData = {};
+          const storedData = localStorage.getItem('yearlyCheckData');
+          
+          if (storedData) {
+            try {
+              yearlyCheckData = JSON.parse(storedData);
+            } catch (e) {
+              console.error('로컬 스토리지 데이터 파싱 오류:', e);
+              yearlyCheckData = {};
+            }
+          }
+          
+          yearlyCheckData[indicatorData.id] = yearlyStatus;
+          localStorage.setItem('yearlyCheckData', JSON.stringify(yearlyCheckData));
+          
+          // API로 상태 업데이트 전송
+          fetch(`/api/indicators/${indicatorData.id}/yearly-status`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              yearlyStatus: yearlyStatus
+            })
+          })
+          .then(response => {
+            if (!response.ok) {
+              throw new Error(`연중점검 상태 업데이트 실패: ${response.status}`);
+            }
+            return response.json();
+          })
+          .then(data => {
+            console.log('연중점검 상태 업데이트 성공:', data);
+          })
+          .catch(error => {
+            console.error('연중점검 상태 업데이트 오류:', error);
+          });
+        });
+      });
+      
+      // 초기 UI 업데이트
+      updateYearlyCheckStatusUI(indicatorData.id, yearlyStatus);
+    }
+    
+    // 월별 점검 상태 업데이트 함수
+    function updateMonthlyCheckStatus(indicatorData) {
+      console.log('확인! 월별 점검 상태 업데이트 함수 호출 되었습니다!');
+      console.log('월별 점검 상태 업데이트 시작 - 전체 데이터:', JSON.stringify(indicatorData, null, 2));
+      
+      if (!indicatorData) {
+        console.error('지표 데이터가 없습니다!');
+        return;
+      }
+      
+      // 연중점검 여부 확인
+      const checkIsYearRound = (data) => {
+        return data.category === '연중' || 
+          data.period === '연중' || 
+          data.category === '연중점검' || 
+          data.period === '연중점검' || 
+          (data.category && data.category.includes('연중')) || 
+          (data.period && data.period.includes('연중'));
+      };
+      
+      const isYearRound = checkIsYearRound(indicatorData);
+      console.log(`지표 ${indicatorData.id || indicatorData.name}의 연중점검 여부:`, isYearRound);
+      
+      // 연중점검 지표인 경우 연중점검 상태 업데이트 함수 호출
+      if (isYearRound) {
+        console.log('연중점검 지표 감지, 연중점검 상태 업데이트 함수 호출');
+        updateYearlyCheckStatus(indicatorData);
+        return;
+      }
+      
+      // monthlyStatus 데이터 확인
+      let monthlyStatus = indicatorData.monthlyStatus;
+      console.log('월별 점검 상태 데이터 (원본):', monthlyStatus);
+      
+      // monthlyStatus가 없으면 빈 객체로 초기화
+      if (!monthlyStatus) {
+        console.log('월별 점검 상태 데이터가 없어 초기화합니다.');
+        monthlyStatus = {};
+      }
+      
+      // 구글 시트에서 가져온 데이터를 UI에 맞게 변환
+      const uiMonthlyStatus = {};
+      
+      // 기본값 설정 (1~12월)
+      for (let i = 1; i <= 12; i++) {
+        uiMonthlyStatus[i] = 'unchecked';
+      }
+      
+      // 각 월에 대해 상태 변환
+      for (const month in monthlyStatus) {
+        const monthNum = parseInt(month, 10);
+        if (isNaN(monthNum) || monthNum < 1 || monthNum > 12) continue;
+        
+        const status = monthlyStatus[month];
+        console.log(`${month}월 상태 변환: ${status} -> `, status === 'fulfilled' ? 'checked' : status === 'unfulfilled' ? 'failed' : 'unchecked');
+        
+        if (status === 'fulfilled') {
+          uiMonthlyStatus[monthNum] = 'checked';
+        } else if (status === 'unfulfilled') {
+          uiMonthlyStatus[monthNum] = 'failed';
+        } else {
+          uiMonthlyStatus[monthNum] = 'unchecked';
+        }
+      }
+      
+      console.log('변환된 UI 월별 점검 상태 데이터:', uiMonthlyStatus);
+      
+      // UI 업데이트 함수 호출
+      updateMonthlyCheckUI(uiMonthlyStatus);
+      
+      console.log('월별 점검 상태 업데이트 완료!');
+    }
+    
+// 연중점검 상태 업데이트 함수
+function updateYearRoundCheckStatus(indicatorData) {
+  console.log('연중점검 상태 업데이트 시작:', indicatorData);
+  
+  if (!indicatorData) return;
+  
+  // 연중점검 상태 데이터 확인
+  const yearRoundStatus = indicatorData.yearRoundStatus || indicatorData.연중점검현황 || {};
+  console.log('연중점검 상태 데이터:', yearRoundStatus);
+  
+  // 모든 연중점검 요소 가져오기
+  const yearlyCheckElements = document.querySelectorAll('.yearly-check');
+  console.log('연중점검 요소 개수:', yearlyCheckElements.length);
+  
+  if (yearlyCheckElements.length === 0) {
+    console.log('연중점검 요소가 없습니다. 연중점검 UI가 제대로 렌더링되었는지 확인하세요.');
+    return;
+  }
+  
+  // 점검 포인트 정의
+  const checkPoints = ['상반기', '하반기', '최종점검'];
+  
+  // 각 요소에 대해 상태 업데이트
+  yearlyCheckElements.forEach((element, index) => {
+    const point = checkPoints[index];
+    let status = yearRoundStatus[point];
+    
+    console.log(`${point} 점검 상태:`, status);
+    
+    // 상태가 없으면 기본값 설정
+    if (!status) {
+      status = 'unchecked';
+    }
+    
+    // 모든 클래스 제거
+    element.classList.remove('fulfilled', 'unfulfilled', 'unchecked');
+    
+    // 상태에 따라 클래스와 텍스트 설정
+    if (status === 'fulfilled') {
+      element.classList.add('fulfilled');
+      element.textContent = '충족';
+    } else if (status === 'unfulfilled') {
+      element.classList.add('unfulfilled');
+      element.textContent = '미충족';
+    } else {
+      element.classList.add('unchecked');
+      element.textContent = '미점검';
+    }
+  });
+}
+
+// 월별 상태 데이터 처리 함수
+function processMonthlyStatus(indicatorId, statusData) {
+  console.log(`지표 ${indicatorId}의 월별 상태 데이터 처리 시작:`, statusData);
+  
+  if (!statusData) {
+    console.log('처리할 월별 상태 데이터가 없습니다.');
+    return {};
+  }
+  
+  let monthlyStatusObj = {};
+  
+  try {
+    // 문자열인 경우 JSON으로 파싱 시도
+    if (typeof statusData === 'string') {
+      if (statusData.trim() === '' || statusData.trim() === '{}') {
+        console.log('문자열 데이터가 비어있습니다.');
+        return {};
+      } else if (statusData.trim().startsWith('{')) {
+            // JSON 형태의 문자열인 경우
+            try {
+              monthlyStatusObj = JSON.parse(statusData);
+              console.log('성공적으로 JSON 파싱함:', monthlyStatusObj);
+            } catch (parseError) {
+              console.error('JSON 파싱 오류:', parseError);
+              
+              // 따옴표를 제거하고 다시 시도
+              try {
+                const cleanedStatus = statusData.replace(/'/g, '"');
+                monthlyStatusObj = JSON.parse(cleanedStatus);
+                console.log('따옴표 제거 후 성공적으로 JSON 파싱함:', monthlyStatusObj);
+              } catch (innerError) {
+                console.error('따옴표 제거 후 파싱 실패:', innerError);
+                
+                // 수동 파싱 시도
+                try {
+                  // 예: {"1":"unfulfilled","2":"fulfilled"} 형태로 변환
+                  const manualParsed = {};
+                  const parts = statusData.split(',');
+                  
+                  parts.forEach(part => {
+                    const keyValue = part.replace(/[{}\'"]/g, '').trim().split(':');
+                    if (keyValue.length === 2) {
+                      const key = keyValue[0].trim();
+                      const value = keyValue[1].trim();
+                      manualParsed[key] = value;
+                    }
+                  });
+                  
+                  if (Object.keys(manualParsed).length > 0) {
+                    monthlyStatusObj = manualParsed;
+                    console.log('수동 파싱 성공:', monthlyStatusObj);
+                  }
+                } catch (manualError) {
+                  console.error('수동 파싱 실패:', manualError);
+                }
+              }
+            }
+          } else if (statusData.includes('fulfilled') || statusData.includes('unfulfilled')) {
+            try {
+              // 따옴표를 제거하고 파싱 시도
+              const cleanedStatus = statusData.replace(/'/g, '"');
+              monthlyStatusObj = JSON.parse(cleanedStatus);
+              console.log('fulfilled/unfulfilled 키워드 포함 문자열 파싱 성공:', monthlyStatusObj);
+            } catch (innerError) {
+              console.log('따옴표 제거 후 파싱 실패:', innerError);
+            }
+          } else if (statusData === '충족') {
+            // 충족 문자열인 경우 1월을 충족으로 설정
+            console.log('"충족" 문자열을 JSON 객체로 변환');
+            monthlyStatusObj = {"1": "fulfilled"};
+          } else if (statusData === '미충족') {
+            // 미충족 문자열인 경우 1월을 미충족으로 설정
+            console.log('"미충족" 문자열을 JSON 객체로 변환');
+            monthlyStatusObj = {"1": "unfulfilled"};
+          }
+        } else if (typeof statusData === 'object' && statusData !== null) {
+          // 이미 객체인 경우 그대로 사용
+          monthlyStatusObj = statusData;
+          console.log('객체 형태의 데이터 사용:', monthlyStatusObj);
+        }
+      } catch (error) {
+        console.error('상태 데이터 처리 오류:', error);
+        monthlyStatusObj = {};
+      }
+      
+      console.log('파싱된 월별 상태 데이터:', monthlyStatusObj);
+      
+      // 로컬 스토리지에서 현재 데이터 가져오기
+      let monthlyCheckData = {};
+      const storedData = localStorage.getItem('monthlyCheckData');
+      if (storedData) {
+        try {
+          monthlyCheckData = JSON.parse(storedData);
+        } catch (e) {
+          console.error('로컬 스토리지 데이터 파싱 오류:', e);
+          monthlyCheckData = {};
+        }
+      }
+      
+      return monthlyStatusObj;
+    }
+    
+    // 월별 상태 UI 업데이트 함수
+    function updateMonthlyStatusUI(indicatorId, monthlyStatus) {
+      console.log(`지표 ${indicatorId}의 월별 상태 UI 업데이트:`, monthlyStatus);
+      
+      // 월별 상태 데이터 처리
+      let processedStatus = {};
+      
+      // 문자열이면 파싱 시도
+      if (typeof monthlyStatus === 'string') {
+        try {
+          // 따옴표를 더블따옴표로 변환하여 파싱 시도
+          processedStatus = JSON.parse(monthlyStatus.replace(/'/g, '"'));
+          console.log('문자열에서 파싱된 월별 상태:', processedStatus);
+        } catch (error) {
+          console.error('JSON 파싱 오류:', error);
+        }
+      }
+      
+      // 각 월에 대해 버튼 상태 업데이트 (1월부터 12월까지)
+      for (let i = 1; i <= 12; i++) {
+        const month = i.toString();
+        const status = monthlyStatus[i] || 'unchecked';
+        const buttonId = `month-${month}-button`;
+        const button = document.getElementById(buttonId);
+        
+        console.log(`${month}월 버튼 업데이트 시도 - ID: ${buttonId}, 상태: ${status}`);
+        
+        if (!button) {
+          console.warn(`${month}월 버튼을 찾을 수 없습니다: ${buttonId}`);
+          // 버튼 요소 디버깅
+          console.log(`버튼 요소 검색 시도: document.querySelector('[id="${buttonId}"]'):`, document.querySelector(`[id="${buttonId}"]`));
+          continue;
+        }
+        
+        // 버튼 상태 업데이트
+        if (status === 'fulfilled' || status === 'checked') {
+          button.textContent = '충족';
+          button.classList.remove('bg-gray-300', 'bg-red-500');
+          button.classList.add('bg-green-500');
+          console.log(`지표 ${indicatorId}의 ${month}월 상태를 충족으로 설정함`);
+        } else if (status === 'unfulfilled' || status === 'failed') {
+          button.textContent = '미충족';
+          button.classList.remove('bg-gray-300', 'bg-green-500');
+          button.classList.add('bg-red-500');
+          console.log(`지표 ${indicatorId}의 ${month}월 상태를 미충족으로 설정함`);
+        } else {
+          button.textContent = '미점검';
+          button.classList.remove('bg-red-500', 'bg-green-500');
+          button.classList.add('bg-gray-300');
+          console.log(`지표 ${indicatorId}의 ${month}월 상태를 미점검으로 설정함`);
+        }
+      }
+    }
+    
+    // 월별 상태 저장 기능은 별도의 함수에서 처리
+    
+    // 알림 메시지 요소 추가
+    if (!document.getElementById('toast')) {
+      const toastDiv = document.createElement('div');
+      toastDiv.id = 'toast';
+      toastDiv.className = 'toast';
+      toastDiv.textContent = '저장되었습니다';
+      document.body.appendChild(toastDiv);
+    }
+  </script>
+  
+  <!-- 월별 점검 관련 스크립트 -->
+  <script>
+    // 전역 변수로 현재 지표 ID 저장
+    window.indicatorId = '';
+    
+    // 월별 점검 상태 토글 함수
+function toggleMonthCheck(element, indicatorId, month) {
+  console.log('toggleMonthCheck 호출됨:', element, indicatorId, month);
+  
+  // 전역 변수에서 지표 ID 가져오기 (indicatorId가 없을 경우)
+  if (!indicatorId) {
+    indicatorId = window.indicatorId;
+  }
+  
+  if (!indicatorId) {
+    console.error('지표 ID가 없습니다.');
+    showToast('오류: 지표 ID가 없습니다.');
+    return;
+  }
+  
+  if (!month) {
+    console.error('월 정보가 없습니다.');
+    showToast('오류: 월 정보가 없습니다.');
+    return;
+  }
+  
+  console.log('현재 버튼 클래스:', element.className);
+  
+  // 현재 상태 확인
+  const isFulfilled = element.classList.contains('fulfilled') || element.classList.contains('bg-green-500');
+  const isUnfulfilled = element.classList.contains('unfulfilled') || element.classList.contains('bg-red-500');
+  const isUnchecked = element.classList.contains('unchecked') || element.classList.contains('bg-gray-300') || (!isFulfilled && !isUnfulfilled);
+
+  // 상태 변경 (미점검 → 충족 → 미충족 → 미점검 순환)
+  let newStatus = 'unchecked';
+
+  // 기존 클래스 제거
+  element.classList.remove('bg-gray-300', 'bg-green-500', 'bg-red-500');
+  element.classList.remove('text-gray-700', 'text-white');
+  element.classList.remove('fulfilled', 'unfulfilled', 'unchecked');
+
+  if (isUnchecked) {
+    // 미점검 → 충족
+    element.classList.add('bg-green-500', 'text-white', 'fulfilled');
+    element.textContent = '충족';
+    newStatus = 'fulfilled';
+  } else if (isFulfilled) {
+    // 충족 → 미충족
+    element.classList.add('bg-red-500', 'text-white', 'unfulfilled');
+    element.textContent = '미충족';
+    newStatus = 'unfulfilled';
+  } else {
+    // 미충족 → 미점검
+    element.classList.add('bg-gray-300', 'text-gray-700', 'unchecked');
+    element.textContent = '미점검';
+    newStatus = 'unchecked';
+  }
+
+  console.log('변경 후 상태:', newStatus, '클래스:', element.className);
+
+  // 변경된 상태 저장
+  saveMonthlyCheckStatus(indicatorId, month, newStatus);
+  
+  // 저장 후 월별 상태 확인
+  const storageKey = `indicator_${indicatorId}_monthly_status`;
+  const savedStatus = localStorage.getItem(storageKey);
+  if (savedStatus) {
+    try {
+      const parsedStatus = JSON.parse(savedStatus);
+      console.log('저장된 월별 상태:', parsedStatus);
+    } catch (e) {
+      console.error('저장된 월별 점검 상태 파싱 오류:', e);
+    }
+  }
+}
+
+// ... (나머지 코드는 동일)
+
+// 전역 변수 선언 - 현재 지표 ID와 데이터 저장용
+window.indicatorId = null;
+window.currentIndicatorData = null;
+
+// 월별 점검 상태 저장 함수
+function saveMonthlyCheckStatus(indicatorId, month, status) {
+  if (!indicatorId || !month) {
+    console.error('저장할 지표 ID 또는 월 정보가 없습니다:', { indicatorId, month });
+    return;
+  }
+  
+  console.log(`월별 점검 상태 저장: 지표 ${indicatorId}, ${month}월, 상태: ${status}`);
+  
+  // 저장소에서 현재 상태 가져오기
+  const storageKey = `indicator_${indicatorId}_monthly_status`;
+  let monthlyStatus = {};
+  
+  const savedStatus = localStorage.getItem(storageKey);
+  if (savedStatus) {
+    try {
+      monthlyStatus = JSON.parse(savedStatus);
+    } catch (e) {
+      console.error('저장된 월별 점검 상태 파싱 오류:', e);
+    }
+  }
+  
+  // 새 상태 적용
+  if (status === 'unchecked') {
+    // 미점검인 경우 해당 월 상태 제거
+    delete monthlyStatus[month];
+  } else {
+    monthlyStatus[month] = status;
+  }
+  
+  // 저장소에 저장
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(monthlyStatus));
+    console.log(`월별 점검 상태 저장 완료: ${month}월 = ${status}`);
+    console.log('저장된 전체 월별 상태:', monthlyStatus);
+  } catch (e) {
+    console.error('월별 점검 상태 저장 오류:', e);
+  }
+}
+
+// 문서 로드 이벤트에 초기화 함수 연결
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('문서 로드 완료 - 초기화 시작');
+  
+  // 월별 버튼 초기화
+  initializeMonthlyButtons();
+});
+
+// 월별 버튼 초기화 함수
+function initializeMonthlyButtons() {
+  console.log('월별 버튼 초기화 시작');
+  
+  // 모든 월별 버튼을 미점검 상태로 초기화
+  for (let i = 1; i <= 12; i++) {
+    const month = i.toString();
+    const buttonId = `month-${month}-button`;
+    const button = document.getElementById(buttonId);
+    
+    if (button) {
+      // 기존 클래스 제거
+      button.classList.remove('bg-green-500', 'bg-red-500', 'fulfilled', 'unfulfilled');
+      button.classList.remove('text-white');
+      
+      // 미점검 상태로 설정
+      button.classList.add('bg-gray-300', 'text-gray-700', 'unchecked');
+      button.textContent = '미점검';
+      
+      console.log(`${month}월 버튼 초기화 완료: ${buttonId}`);
+    } else {
+      console.warn(`${month}월 버튼을 찾을 수 없습니다: ${buttonId}`);
+    }
+  }
+  
+  // 저장된 월별 점검 데이터 초기화
+  localStorage.removeItem('monthlyCheckData');
+  console.log('월별 버튼 초기화 완료');
+}
+
+// showIndicatorDetail 함수 정의
+window.showIndicatorDetail = function(indicator) {
+  try { // try 블록 추가
+    if (!indicator) {
+      console.error('표시할 지표 데이터가 없습니다.');
+      return;
+    }
+
+    // 필요한 UI 요소 찾기
+    const detailContainer = document.getElementById('indicator-detail');
+    const noSelectionElement = document.getElementById('no-selection');
+    const detailErrorElement = document.getElementById('detail-error');
+
+    if (!detailContainer) {
+      console.error('필요한 UI 요소를 찾을 수 없습니다.');
+      return;
+    }
+
+    // UI 초기화
+    if (noSelectionElement) noSelectionElement.classList.add('hidden');
+    if (detailErrorElement) detailErrorElement.classList.add('hidden');
+    detailContainer.classList.remove('hidden');
+
+    // 지표 ID 추출 및 전역 변수에 저장
+    const indicatorId = indicator.id || indicator.지표ID;
+    
+    // 월별 버튼 초기화 - 새 지표를 선택할 때마다 초기화
+    for (let i = 1; i <= 12; i++) {
+      const month = i.toString();
+      const buttonId = `month-${month}-button`;
+      const button = document.getElementById(buttonId);
+      
+      if (button) {
+        // 기존 클래스 제거
+        button.classList.remove('bg-green-500', 'bg-red-500', 'fulfilled', 'unfulfilled');
+        button.classList.remove('text-white');
+        
+        // 미점검 상태로 설정
+        button.classList.add('bg-gray-300', 'text-gray-700', 'unchecked');
+        button.textContent = '미점검';
+      }
+    }
+
+    // 전역 변수에 현재 지표 ID와 지표 데이터 저장
+    window.indicatorId = indicatorId;
+    window.currentIndicatorData = indicator;
+
+    console.log('현재 지표 데이터:', indicator);
+
+    // 평가연계 지표 여부 확인 (evaluationLinked 속성 사용)
+    const isEvaluationLinked = indicator.evaluationLinked || false;
+    
+    // 지표 상세 정보 구성
+    let detailHTML = `
+      <div class="p-6 ${isEvaluationLinked ? 'bg-blue-50 border-l-4 border-blue-500' : ''}">
+        <h2 class="text-2xl font-bold mb-4 ${isEvaluationLinked ? 'text-blue-700' : ''}">
+          ${indicator.name || indicator.지표명 || '지표 정보 없음'}
+          ${isEvaluationLinked ? '<span class="text-sm font-bold bg-blue-100 text-blue-800 px-2 py-1 rounded ml-2">평가연계 지표</span>' : ''}
+        </h2>
+        <div class="bg-blue-50 p-4 rounded-lg mb-6">
+          <p class="text-sm text-blue-800"><span class="font-medium">지표 ID:</span> ${indicator.id || indicator.지표ID || 'N/A'}</p>
+          <p class="text-sm text-blue-800"><span class="font-medium">코드:</span> ${indicator.code || indicator.코드 || 'N/A'}</p>
+          <p class="text-sm text-blue-800"><span class="font-medium">카테고리:</span> ${indicator.category || indicator.카테고리 || 'N/A'}</p>
+        </div>
+
+        <div class="mb-6">
+          <h3 class="text-lg font-medium text-gray-900 mb-2">점검 자료</h3>
+          <p class="text-gray-700">${indicator.검토자료 || indicator.reviewMaterials || '점검 자료 정보가 없습니다.'}</p>
+        </div>
+
+        <div class="mb-6">
+          <h3 class="text-lg font-medium text-gray-900 mb-2">점검 기준</h3>
+          <p class="text-gray-700">${indicator.description || indicator.설명 || '점검 기준 정보가 없습니다.'}</p>
+        </div>
+    `;
+    
+    // 현재 활성화된 탭이 매월점검인 경우에만 월별 모니터링 현황 표시
+    if (window.activePeriod === 'monthly') {
+      detailHTML += `
+        <div class="mb-6">
+          <h3 class="text-lg font-medium text-gray-900 mb-2">월별 모니터링 현황</h3>
+          <div class="grid grid-cols-12 gap-2 mt-4" id="monthly-monitoring">
+      `;
+      
+      // 월별 버튼 추가
+      for (let month = 1; month <= 12; month++) {
+        detailHTML += `
+          <div class="text-center">
+            <div class="text-xs text-gray-500 mb-1">${month}월</div>
+            <button type="button" id="month-${month}-button" class="month-check unchecked bg-gray-300 text-gray-700 w-full py-1 px-2 text-xs rounded" onclick="toggleMonthCheck(this, null, ${month});">미점검</button>
+          </div>
+        `;
+      }
+      
+      // 월별 점검 상태 설명 추가
+      detailHTML += `
+          </div>
+          <div class="text-xs text-gray-500 mt-2">* 버튼 클릭하여 미점검 → 충족 → 미충족 순서로 상태를 변경할 수 있습니다.</div>
+        </div>
+      `;
+    }
+
+    // 연중점검 탭인 경우에만 연중점검 현황 표시
+    if (window.activePeriod === 'yearly') {
+      detailHTML += `
+        <div class="mb-6">
+          <h3 class="text-lg font-medium text-gray-900 mb-2">연중점검 현황</h3>
+          <div class="grid grid-cols-3 gap-2 mt-4" id="yearly-monitoring">
+      `;
+
+      // 연중점검 버튼 추가
+      for (let i = 1; i <= 3; i++) {
+        detailHTML += `
+          <div class="text-center">
+            <div class="text-xs text-gray-500 mb-1">${i === 1 ? '상반기' : i === 2 ? '하반기' : '최종점검'}</div>
+            <button type="button" id="yearly-${i}-button" class="yearly-check unchecked bg-gray-300 text-gray-700 w-full py-1 px-2 text-xs rounded" onclick="toggleYearlyCheck(this, null, ${i});">미점검</button>
+          </div>
+        `;
+      }
+
+      // 연중점검 상태 설명 추가
+      detailHTML += `
+          </div>
+          <div class="text-xs text-gray-500 mt-2">* 버튼 클릭하여 미점검 → 충족 → 미충족 순서로 상태를 변경할 수 있습니다.</div>
+        </div>
+      `;
+    }
+
+    // 의견 섹션 추가
+    detailHTML += `
+      <div class="mb-6">
+        <h3 class="text-lg font-medium text-gray-900 mb-2">의견</h3>
+        <textarea id="comment-text" class="w-full p-2 border border-gray-300 rounded h-24" placeholder="의견 또는 메모를 입력하세요">${indicator.comment || ''}</textarea>
+      </div>
+
+      <div class="flex justify-end mt-6">
+        <button id="btn-save-data" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg shadow-sm">
+          저장하기
+        </button>
+      </div>
+    </div>
+    `;
+
+    // 상세 정보 표시
+    detailContainer.innerHTML = detailHTML;
+
+    // 점검 상태 로드 - 항상 최신 데이터를 가져오도록 forceRefresh=true 옵션 사용
+    console.log('점검 상태 로드 함수 호출:', indicatorId);
+    if (indicator.category === '연중' || indicator.period === '연중') {
+      loadYearlyCheckStatus(indicatorId, true);
+    } else {
+      loadMonthlyCheckStatus(indicatorId, true);
+    }
+
+    // 연중점검인 경우 버튼 이벤트 리스너 추가
+    if (indicator.category === '연중' || indicator.period === '연중') {
+      // 상반기, 하반기, 최종점검 버튼에 이벤트 리스너 추가
+      for (let i = 1; i <= 3; i++) {
+        const button = document.getElementById(`yearly-${i}-button`);
+        if (button) {
+          button.addEventListener('click', function() {
+            toggleYearlyCheck(this, indicatorId, i);
+          });
+        }
+      }
+    }
+  } catch (error) {
+    console.error('showIndicatorDetail 함수 처리 중 오류 발생:', error);
+  }
+}; // showIndicatorDetail 함수 종료
+
+// 월별 점검 상태 로드 함수
+function loadMonthlyCheckStatus(indicatorId, forceRefresh = false) {
+  try {
+    console.log('월별 점검 상태 로드 함수 호출:', indicatorId);
+    
+    // 로컬 스토리지에서 점검 상태 가져오기
+    const storageKey = `indicator_${indicatorId}_monthly_status`;
+    let checkStatus = null;
+    
+    // forceRefresh가 true면 로컬 스토리지 무시
+    if (!forceRefresh) {
+      const savedStatus = localStorage.getItem(storageKey);
+      if (savedStatus) {
+        try {
+          checkStatus = JSON.parse(savedStatus);
+          console.log('로컬 스토리지에서 점검 상태 가져옴:', checkStatus);
+        } catch (e) {
+          console.error('저장된 점검 상태 파싱 오류:', e);
+        }
+      }
+    }
+    
+    // 저장된 상태가 없으면 기본값 생성
+    if (!checkStatus) {
+      checkStatus = {};
+      for (let month = 1; month <= 12; month++) {
+        checkStatus[month] = 'unchecked'; // 기본값은 '미점검'
+      }
+      console.log('기본 점검 상태 생성:', checkStatus);
+    }
+    
+    // UI 업데이트
+    updateMonthlyCheckUI(checkStatus);
+    
+    return checkStatus;
+  } catch (error) {
+    console.error('월별 점검 상태 로드 중 오류:', error);
+    return {};
+  }
+}
+
+// 연중 점검 상태 로드 함수
+function loadYearlyCheckStatus(indicatorId, forceRefresh = false) {
+  try {
+    console.log('연중 점검 상태 로드 함수 호출:', indicatorId);
+    
+    // 로컬 스토리지에서 점검 상태 가져오기
+    const storageKey = `indicator_${indicatorId}_yearly_status`;
+    let checkStatus = null;
+    
+    // forceRefresh가 true면 로컬 스토리지 무시
+    if (!forceRefresh) {
+      const savedStatus = localStorage.getItem(storageKey);
+      if (savedStatus) {
+        try {
+          checkStatus = JSON.parse(savedStatus);
+          console.log('로컬 스토리지에서 연중 점검 상태 가져옴:', checkStatus);
+        } catch (e) {
+          console.error('저장된 연중 점검 상태 파싱 오류:', e);
+        }
+      }
+    }
+    
+    // 저장된 상태가 없으면 기본값 생성
+    if (!checkStatus) {
+      checkStatus = {};
+      for (let i = 1; i <= 3; i++) {
+        checkStatus[i] = 'unchecked'; // 기본값은 '미점검'
+      }
+      console.log('기본 연중 점검 상태 생성:', checkStatus);
+    }
+    
+    // UI 업데이트
+    updateYearlyCheckUI(checkStatus);
+    
+    return checkStatus;
+  } catch (error) {
+    console.error('연중 점검 상태 로드 중 오류:', error);
+    return {};
+  }
+}
+
+// 월별 점검 UI 업데이트
+function updateMonthlyCheckUI(checkStatus) {
+  try {
+    console.log('확인! 월별 점검 UI 업데이트 함수 호출 되었습니다!');
+    console.log('월별 점검 UI 업데이트 데이터:', JSON.stringify(checkStatus, null, 2));
+    
+    if (!checkStatus) {
+      console.error('업데이트할 월별 점검 상태 데이터가 없습니다!');
+      return;
+    }
+    
+    // 각 월에 대해 버튼 상태 업데이트 (1월부터 12월까지)
+    for (let month = 1; month <= 12; month++) {
+      const buttonId = `month-${month}-button`;
+      const button = document.getElementById(buttonId);
+      
+      console.log(`${month}월 버튼 업데이트 시도 - ID: ${buttonId}`);
+      
+      if (!button) {
+        console.warn(`${month}월 버튼을 찾을 수 없습니다: ${buttonId}`);
+        // 버튼 요소 디버깅
+        console.log(`버튼 요소 검색 시도: document.querySelector('#${buttonId}'):`, document.querySelector(`#${buttonId}`));
+        continue;
+      }
+      
+      // 기존 클래스 제거
+      button.classList.remove('unchecked', 'checked', 'failed');
+      button.classList.remove('bg-gray-300', 'bg-green-500', 'bg-red-500');
+      button.classList.remove('text-gray-700', 'text-white');
+      
+      // 상태 가져오기 (기본값은 'unchecked')
+      let status = checkStatus[month] || 'unchecked';
+      console.log(`${month}월 원본 상태:`, status);
+      
+      // 구글 시트에서 가져온 상태를 UI 상태로 맵핑
+      let uiStatus = status;
+      if (status === 'fulfilled') {
+        uiStatus = 'checked';
+        console.log(`${month}월 상태 변환: fulfilled -> checked`);
+      } else if (status === 'unfulfilled') {
+        uiStatus = 'failed';
+        console.log(`${month}월 상태 변환: unfulfilled -> failed`);
+      } else if (status === 'checked' || status === 'failed') {
+        // 이미 UI 상태인 경우 그대로 유지
+        console.log(`${month}월 상태 유지: ${status}`);
+      } else {
+        uiStatus = 'unchecked';
+        console.log(`${month}월 상태 유지: ${status} -> unchecked`);
+      }
+      
+      // 클래스 추가
+      button.classList.add(uiStatus);
+      console.log(`${month}월 버튼에 클래스 추가: ${uiStatus}`);
+      
+      // 상태에 따른 스타일 및 텍스트 설정
+      if (uiStatus === 'checked') {
+        button.classList.add('bg-green-500', 'text-white');
+        button.textContent = '충족';
+      } else if (uiStatus === 'failed') {
+        button.classList.add('bg-red-500', 'text-white');
+        button.textContent = '미충족';
+      } else {
+        button.classList.add('bg-gray-300', 'text-gray-700');
+        button.textContent = '미점검';
+      }
+      
+      // 클릭 이벤트 추가
+      button.onclick = function() {
+        toggleMonthCheck(this, window.indicatorId, month);
+      };
+    }
+  } catch (error) {
+    console.error('월별 점검 UI 업데이트 중 오류:', error);
+  }
+}
+
+// 연중 점검 UI 업데이트
+function updateYearlyCheckUI(checkStatus) {
+  try {
+    console.log('연중 점검 UI 업데이트:', checkStatus);
+    
+    // 각 점검 항목에 대해 버튼 상태 업데이트
+    for (let i = 1; i <= 3; i++) {
+      const button = document.getElementById(`yearly-${i}-button`);
+      if (button) {
+        // 기존 클래스 제거
+        button.classList.remove('unchecked', 'checked', 'failed');
+        button.classList.remove('bg-gray-300', 'bg-green-500', 'bg-red-500');
+        button.classList.remove('text-gray-700', 'text-white');
+        
+        // 상태에 따른 클래스 추가
+        const status = checkStatus[i] || 'unchecked';
+        button.classList.add(status);
+        
+        // 상태에 따른 스타일 및 텍스트 설정
+        if (status === 'checked') {
+          button.classList.add('bg-green-500', 'text-white');
+          button.textContent = '충족';
+        } else if (status === 'failed') {
+          button.classList.add('bg-red-500', 'text-white');
+          button.textContent = '미충족';
+        } else {
+          button.classList.add('bg-gray-300', 'text-gray-700');
+          button.textContent = '미점검';
+        }
+        
+        // 클릭 이벤트 추가
+        button.onclick = function() {
+          toggleYearlyCheck(this, window.indicatorId, i);
+        };
+      }
+    }
+  } catch (error) {
+    console.error('연중 점검 UI 업데이트 중 오류:', error);
+  }
+}
+
+// 월별 점검 상태 변경 함수
+function toggleMonthCheck(buttonElement, indicatorId, month) {
+  try {
+    console.log('월별 점검 상태 변경:', indicatorId, month);
+    
+    // 현재 지표 ID가 없으면 전역 변수에서 가져오기
+    if (!indicatorId && window.indicatorId) {
+      indicatorId = window.indicatorId;
+    }
+    
+    if (!indicatorId) {
+      console.error('지표 ID가 없습니다.');
+      return;
+    }
+    
+    // 현재 상태 확인
+    const currentStatus = buttonElement.classList.contains('unchecked') ? 'unchecked' :
+                         buttonElement.classList.contains('fulfill') ? 'fulfill' :
+                         buttonElement.classList.contains('checked') ? 'checked' : 'failed';
+    
+    // 상태 순환: 미점검 -> 충족 -> 미충족 -> 미점검
+    let newStatus = 'unchecked';
+    if (currentStatus === 'unchecked') {
+      newStatus = 'fulfill';
+    } else if (currentStatus === 'checked' || currentStatus === 'fulfill') {
+      newStatus = 'failed';
+    } else {
+      newStatus = 'unchecked';
+    }
+    
+    // 버튼 상태 변경
+    buttonElement.classList.remove('unchecked', 'checked', 'failed');
+    buttonElement.classList.remove('bg-gray-300', 'bg-green-500', 'bg-red-500');
+    buttonElement.classList.remove('text-gray-700', 'text-white');
+    
+    buttonElement.classList.add(newStatus);
+    
+    // 상태에 따른 스타일 및 텍스트 설정
+    if (newStatus === 'fulfill') {
+      buttonElement.classList.add('bg-green-500', 'text-white');
+      buttonElement.textContent = '충족';
+    } else if (newStatus === 'failed') {
+      buttonElement.classList.add('bg-red-500', 'text-white');
+      buttonElement.textContent = '미충족';
+    } else {
+      buttonElement.classList.add('bg-gray-300', 'text-gray-700');
+      buttonElement.textContent = '미점검';
+    }
+    
+    // 변경된 상태 저장
+    saveMonthlyCheckStatus(indicatorId, month, newStatus);
+    
+  } catch (error) {
+    console.error('월별 점검 상태 변경 중 오류:', error);
+  }
+}
+
+// 연중 점검 상태 변경 함수
+function toggleYearlyCheck(buttonElement, indicatorId, checkPointIndex) {
+  try {
+    console.log('연중 점검 상태 변경:', indicatorId, checkPointIndex);
+    
+    // 현재 지표 ID가 없으면 전역 변수에서 가져오기
+    if (!indicatorId && window.indicatorId) {
+      indicatorId = window.indicatorId;
+    }
+    
+    if (!indicatorId) {
+      console.error('지표 ID가 없습니다.');
+      return;
+    }
+    
+    // 현재 상태 확인
+    const currentStatus = buttonElement.classList.contains('unchecked') ? 'unchecked' :
+                         buttonElement.classList.contains('fulfill') ? 'fulfill' :
+                         buttonElement.classList.contains('checked') ? 'checked' : 'failed';
+    
+    // 상태 순환: 미점검 -> 충족 -> 미충족 -> 미점검
+    let newStatus = 'unchecked';
+    if (currentStatus === 'unchecked') {
+      newStatus = 'fulfill';
+    } else if (currentStatus === 'checked' || currentStatus === 'fulfill') {
+      newStatus = 'failed';
+    } else {
+      newStatus = 'unchecked';
+    }
+    
+    // 버튼 상태 변경
+    buttonElement.classList.remove('unchecked', 'checked', 'failed');
+    buttonElement.classList.remove('bg-gray-300', 'bg-green-500', 'bg-red-500');
+    buttonElement.classList.remove('text-gray-700', 'text-white');
+    
+    buttonElement.classList.add(newStatus);
+    
+    // 상태에 따른 스타일 및 텍스트 설정
+    if (newStatus === 'fulfill') {
+      buttonElement.classList.add('bg-green-500', 'text-white');
+      buttonElement.textContent = '충족';
+    } else if (newStatus === 'failed') {
+      buttonElement.classList.add('bg-red-500', 'text-white');
+      buttonElement.textContent = '미충족';
+    } else {
+      buttonElement.classList.add('bg-gray-300', 'text-gray-700');
+      buttonElement.textContent = '미점검';
+    }
+    
+    // 변경된 상태 저장
+    saveYearlyCheckStatus(indicatorId, checkPointIndex, newStatus);
+    
+  } catch (error) {
+    console.error('연중 점검 상태 변경 중 오류:', error);
+  }
+}
+
+// 월별 점검 상태 저장
+function saveMonthlyCheckStatus(indicatorId, month, status) {
+  try {
+    console.log('월별 점검 상태 저장:', indicatorId, month, status);
+    
+    // 로컬 스토리지에서 현재 상태 가져오기
+    const storageKey = `indicator_${indicatorId}_monthly_status`;
+    let checkStatus = {};
+    
+    const savedStatus = localStorage.getItem(storageKey);
+    if (savedStatus) {
+      try {
+        checkStatus = JSON.parse(savedStatus);
+      } catch (e) {
+        console.error('저장된 점검 상태 파싱 오류:', e);
+      }
+    }
+    
+    // 상태 업데이트
+    checkStatus[month] = status;
+    
+    // 로컬 스토리지에 저장
+    localStorage.setItem(storageKey, JSON.stringify(checkStatus));
+    console.log('월별 점검 상태 저장 완료:', checkStatus);
+    
+    // 이후 서버에 저장하는 로직 추가 가능
+    // saveIndicatorDataToServer(indicatorId, checkStatus);
+    
+  } catch (error) {
+    console.error('월별 점검 상태 저장 중 오류:', error);
+  }
+}
+
+// 연중 점검 상태 저장
+function saveYearlyCheckStatus(indicatorId, checkPointIndex, status) {
+  try {
+    console.log('연중 점검 상태 저장:', indicatorId, checkPointIndex, status);
+    
+    // 로컬 스토리지에서 현재 상태 가져오기
+    const storageKey = `indicator_${indicatorId}_yearly_status`;
+    let checkStatus = {};
+    
+    const savedStatus = localStorage.getItem(storageKey);
+    if (savedStatus) {
+      try {
+        checkStatus = JSON.parse(savedStatus);
+      } catch (e) {
+        console.error('저장된 연중 점검 상태 파싱 오류:', e);
+      }
+    }
+    
+    // 상태 업데이트
+    checkStatus[checkPointIndex] = status;
+    
+    // 로컬 스토리지에 저장
+    localStorage.setItem(storageKey, JSON.stringify(checkStatus));
+    console.log('연중 점검 상태 저장 완료:', checkStatus);
+    
+    // 서버에 연중 점검 상태 저장
+    updateYearlyStatusOnServer(indicatorId, checkStatus);
+    
+  } catch (error) {
+    console.error('연중 점검 상태 저장 중 오류:', error);
+  }
+}
+
+// 서버에 연중 점검 상태 업데이트
+function updateYearlyStatusOnServer(indicatorId, yearlyStatus) {
+  try {
+    console.log(`서버에 연중 점검 상태 업데이트 요청: 지표 ID ${indicatorId}`);
+    console.log('업데이트할 연중 점검 상태:', yearlyStatus);
+    
+    // API 호출
+    fetch(`/api/indicators/${indicatorId}/yearly-status`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ yearlyStatus })
+    })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`HTTP 오류: ${response.status}`);
+      }
+      return response.json();
+    })
+    .then(result => {
+      console.log('연중 점검 상태 업데이트 결과:', result);
+      if (result.status === 'success') {
+        console.log('연중 점검 상태가 성공적으로 업데이트되었습니다.');
+      } else {
+        console.error('연중 점검 상태 업데이트 실패:', result.message);
+      }
+    })
+    .catch(error => {
+      console.error('연중 점검 상태 업데이트 실패:', error);
+      alert(`연중 점검 상태 업데이트 실패: ${error.message}`);
+    });
+  } catch (error) {
+    console.error('연중 점검 상태 업데이트 중 오류:', error);
+  }
+}
+
+// 구글 시트에 데이터 저장 함수
+function saveToGoogleSheet() {
+  try {
+    console.log('구글 시트에 데이터 저장 함수 호출');
+    
+    // 현재 선택된 지표 ID 가져오기
+    const indicatorId = window.indicatorId;
+    if (!indicatorId) {
+      alert('저장할 지표가 선택되지 않았습니다.');
+      console.error('저장할 지표 ID가 없습니다.');
+      return;
+    }
+    
+    // 현재 지표 정보 가져오기
+    let indicator = null;
+    
+    // 1. 현재 표시된 지표 제목 가져오기 (실제 indicators 시트의 name 열 내용)
+    const displayedIndicatorTitle = document.querySelector('.indicator-title')?.textContent;
+    console.log('현재 표시된 지표 제목:', displayedIndicatorTitle);
+    
+    // 2. window.currentIndicatorData에서 정보 가져오기 (showIndicatorDetail에서 설정됨)
+    if (window.currentIndicatorData && window.currentIndicatorData.id === indicatorId) {
+      console.log('window.currentIndicatorData에서 지표 정보 사용:', window.currentIndicatorData);
+      indicator = window.currentIndicatorData;
+    }
+    // 3. window.indicators에서 정보 가져오기
+    else if (window.indicators && Array.isArray(window.indicators) && window.indicators.length > 0) {
+      indicator = window.indicators.find(ind => ind.id === indicatorId);
+      if (indicator) {
+        console.log('window.indicators에서 지표 정보 찾음:', indicator);
+      } else {
+        console.log(`지표 ID ${indicatorId}를 window.indicators에서 찾을 수 없습니다.`);
+      }
+    } else {
+      console.warn('window.indicators가 정의되지 않았습니다.');
+    }
+    
+    // 4. indicator 객체가 없거나 name이 없는 경우 표시된 제목 사용
+    if (!indicator || !indicator.name) {
+      console.log('지표 정보를 찾을 수 없어 현재 표시된 제목 사용');
+      indicator = indicator || {};
+      indicator.id = indicatorId;
+      indicator.name = displayedIndicatorTitle || localStorage.getItem(`indicator_${indicatorId}_name`) || '';
+      indicator.category = localStorage.getItem(`indicator_${indicatorId}_category`) || '매월';
+    }
+    
+    // 5. 여전히 name이 없거나 '지표 [ID]' 형식인 경우 추가 확인
+    if (!indicator.name || indicator.name.startsWith('지표 ')) {
+      console.warn('지표명이 없거나 기본 형식입니다. DOM에서 실제 이름을 찾습니다.');
+      // 사이드바에서 현재 선택된 지표 항목 찾기
+      const selectedItem = document.querySelector('.indicator-item.selected');
+      if (selectedItem) {
+        const nameElement = selectedItem.querySelector('.indicator-name');
+        if (nameElement && nameElement.textContent) {
+          indicator.name = nameElement.textContent.trim();
+          console.log('사이드바에서 찾은 지표명:', indicator.name);
+        }
+      }
+    }
+    
+    // 기관 정보 가져오기 - URL 파라미터 사용
+    // URL에서 파라미터 추출
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // URL 파라미터에서 기관 코드와 기관명 가져오기, 없으면 로컬 스토리지에서 가져오기
+    const orgCode = urlParams.get('orgCode') || localStorage.getItem('selectedOrgCode') || '';
+    const orgName = urlParams.get('orgName') || localStorage.getItem('selectedOrgName') || '';
+    
+    console.log('구글 시트 저장 - 기관 정보:', { orgCode, orgName });
+    
+    if (!orgCode) {
+      alert('기관 정보가 없습니다. 기관을 먼저 선택해주세요.');
+      console.error('기관 코드가 없습니다.');
+      return;
+    }
+    
+    // 사용자 정보 가져오기
+    // 1. 세션에서 현재 로그인한 위원 정보 가져오기 (가장 우선)
+    let user = '';
+    const currentCommittee = JSON.parse(localStorage.getItem('currentCommittee') || '{}');
+    if (currentCommittee && currentCommittee.name) {
+      user = currentCommittee.name;
+      console.log(`현재 로그인한 위원 정보 사용: ${user}`);
+    } else {
+      // 2. URL 파라미터에서 위원 정보 확인
+      const committeeParam = urlParams.get('committee');
+      if (committeeParam) {
+        user = decodeURIComponent(committeeParam);
+        console.log(`URL 파라미터에서 위원 정보 사용: ${user}`);
+      } else {
+        // 3. localStorage에서 이전에 저장된 정보 확인
+        user = localStorage.getItem('userName') || '';
+        console.log(`localStorage에서 위원 정보 사용: ${user}`);
+      }
+    }
+    
+    const userCode = localStorage.getItem('userCode') || '';  // 위원코드 추가
+    
+    // 사용자 이름이 없으면 입력 받기
+    if (!user) {
+      user = prompt('위원님 이름을 입력해주세요. 이 이름으로 구글 시트가 생성됩니다:', '');
+      if (user) {
+        localStorage.setItem('userName', user);
+        console.log(`사용자 이름 저장됨: ${user}`);
+      } else {
+        alert('사용자 이름을 입력하지 않아 저장을 취소합니다.');
+        return;
+      }
+    }
+    
+    console.log(`구글 시트에 저장할 위원 이름: ${user}`);
+    
+    // 월별/연중 점검 상태 가져오기
+    let monthlyStatus = {};
+    let yearlyStatus = {};
+    
+    if (indicator.category === '연중' || indicator.period === '연중') {
+      const storageKey = `indicator_${indicatorId}_yearly_status`;
+      const savedStatus = localStorage.getItem(storageKey);
+      if (savedStatus) {
+        try {
+          yearlyStatus = JSON.parse(savedStatus);
+        } catch (e) {
+          console.error('저장된 연중 점검 상태 파싱 오류:', e);
+        }
+      }
+    } else {
+      const storageKey = `indicator_${indicatorId}_monthly_status`;
+      const savedStatus = localStorage.getItem(storageKey);
+      if (savedStatus) {
+        try {
+          monthlyStatus = JSON.parse(savedStatus);
+          console.log('가져온 월별 점검 상태:', monthlyStatus);
+        } catch (e) {
+          console.error('저장된 월별 점검 상태 파싱 오류:', e);
+        }
+      }
+      
+      // 월별 상태 가 비어있는지 확인
+      if (Object.keys(monthlyStatus).length === 0) {
+        console.log('저장된 월별 상태가 없습니다. 기본값을 사용합니다.');
+        // 기본값은 비어있는 상태로 설정 (미점검)
+        monthlyStatus = {};
+      }
+    }
+    
+    // 코멘트 가져오기 (있는 경우)
+    const commentElement = document.getElementById('indicator-comment');
+    const comment = commentElement ? commentElement.value : '';
+    
+    // 현재 타임스탬프
+    const timestamp = new Date().toISOString();
+    
+    // 원본 상태 데이터 복사
+    let processedMonthlyStatus = {};
+    
+    // 월별 상태 값 표준화 처리
+    if (Object.keys(monthlyStatus).length > 0) {
+      console.log('월별 상태 표준화 전:', monthlyStatus);
+      for (const key in monthlyStatus) {
+        // 'checked'를 'fulfilled'로 변환
+        if (monthlyStatus[key] === 'checked') {
+          processedMonthlyStatus[key] = 'fulfilled';
+        } else {
+          processedMonthlyStatus[key] = monthlyStatus[key];
+        }
+      }
+      console.log('표준화된 월별 상태:', processedMonthlyStatus);
+    } else {
+      console.log('월별 상태가 비어있습니다. 비어있는 객체를 서버로 전송합니다.');
+      // 비어있는 객체를 유지하여 서버에서 적절히 처리하도록 함
+    }
+    
+    // 저장할 데이터 구성
+    const data = {
+      indicatorId,
+      indicatorName: indicator.name || '',
+      orgCode,
+      orgName,
+      comment,
+      monthlyStatus: Object.keys(processedMonthlyStatus).length > 0 ? processedMonthlyStatus : null,  // 비어있으면 null로 설정
+      yearlyStatus: Object.keys(yearlyStatus).length > 0 ? yearlyStatus : null,  // 비어있으면 null로 설정
+      timestamp,
+      user,
+      userCode  // 위원코드 추가
+    };
+    
+    console.log('저장할 데이터:', data);
+    
+    // 저장 중 UI 표시
+    const saveButton = document.getElementById('btn-save-data');
+    if (saveButton) {
+      const originalText = saveButton.textContent;
+      saveButton.textContent = '저장 중...';
+      saveButton.disabled = true;
+      
+      // API 호출
+      fetch('/api/save-to-sheet', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      })
+      .then(response => response.json())
+      .then(result => {
+        console.log('저장 결과:', result);
+        
+        if (result.status === 'success') {
+          alert('데이터가 성공적으로 저장되었습니다.');
+        } else {
+          alert(`저장 실패: ${result.message || '알 수 없는 오류가 발생했습니다.'}`);
+        }
+        
+        // UI 복원
+        saveButton.textContent = originalText;
+        saveButton.disabled = false;
+      })
+      .catch(error => {
+        console.error('저장 중 오류 발생:', error);
+        alert('저장 중 오류가 발생했습니다. 콘솔을 확인해주세요.');
+        
+        // UI 복원
+        saveButton.textContent = originalText;
+        saveButton.disabled = false;
+      });
+    } else {
+      // 버튼이 없는 경우 직접 API 호출
+      fetch('/api/save-to-sheet', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      })
+      .then(response => response.json())
+      .then(result => {
+        console.log('저장 결과:', result);
+        
+        if (result.status === 'success') {
+          alert('데이터가 성공적으로 저장되었습니다.');
+        } else {
+          alert(`저장 실패: ${result.message || '알 수 없는 오류가 발생했습니다.'}`);
+        }
+      })
+      .catch(error => {
+        console.error('저장 중 오류 발생:', error);
+        alert('저장 중 오류가 발생했습니다. 콘솔을 확인해주세요.');
+      });
+    }
+  } catch (error) {
+    console.error('구글 시트 저장 함수 오류:', error);
+    alert('저장 중 오류가 발생했습니다. 콘솔을 확인해주세요.');
+  }
+}
+
+// 이 주석은 더 이상 필요하지 않음
+// 여기에 있던 닫는 괄호는 오류의 원인이었습니다
+
+  </script>
+</body>
+</html>

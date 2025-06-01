@@ -1,0 +1,49 @@
+{
+  "name": "working2",
+  "version": "1.0.0",
+  "description": "노인맞춤돌봄서비스의 55개 수행기관을 대상으로 한 상시모니터링 시스템입니다. 광역지원기관의 5명의 모니터링위원이 주담당/부담당 체계로 모니터링을 수행하며, 지표는 '매월', '반기', '연중', '1~3월'로 구분됩니다. 모니터링 결과는 구글 시트에 저장되어 관리됩니다.",
+  "main": "server.js",
+  "engines": {
+    "node": "18.x"
+  },
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js",
+    "vercel-build": "echo 'Vercel Build'"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
+    "@googleapis/sheets": "^9.6.0",
+    "@mui/icons-material": "^7.0.2",
+    "@mui/material": "^7.0.2",
+    "@mui/x-date-pickers": "^7.28.3",
+    "@types/axios": "^0.9.36",
+    "@types/react": "^19.1.2",
+    "@types/recharts": "^1.8.29",
+    "axios": "^1.8.4",
+    "body-parser": "^1.20.2",
+    "connect-flash": "^0.1.1",
+    "cors": "^2.8.5",
+    "date-fns": "^4.1.0",
+    "dotenv": "^16.5.0",
+    "express": "^4.18.3",
+    "express-session": "^1.18.0",
+    "googleapis": "^128.0.0",
+    "ioredis": "^5.6.1",
+    "jsonwebtoken": "^9.0.2",
+    "jspdf": "^3.0.1",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.2",
+    "react": "^19.1.0",
+    "recharts": "^2.15.2",
+    "typescript": "^5.8.3",
+    "xlsx": "^0.18.5"
+  }
+}

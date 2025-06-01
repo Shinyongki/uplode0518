@@ -1,0 +1,13 @@
+   node_modules/
+.env
+.env-new
+credentials.json
+token.json
+service-account.json
+service-account*.json
+manual-service-account.json
+temp-key.txt
+server-log.txt
+*.log
+.DS_Store
+node_modules

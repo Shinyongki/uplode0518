@@ -1,0 +1,23 @@
+{
+  "version": 2,
+  "builds": [
+    { 
+      "src": "api/serverless.js", 
+      "use": "@vercel/node",
+      "config": {
+        "nodeVersion": "18.x"
+      }
+    },
+    { "src": "public/**/*", "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "/api/(.*)", "dest": "api/serverless.js" },
+    { "src": "/auth/(.*)", "dest": "api/serverless.js" },
+    { "src": "/(.*)", "dest": "public/$1" }
+  ],
+  "env": {
+    "USE_SERVICE_ACCOUNT": "true",
+    "NODE_ENV": "production",
+    "NODE_OPTIONS": "--openssl-legacy-provider"
+  }
+}

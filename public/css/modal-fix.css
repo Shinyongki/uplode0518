@@ -1,0 +1,53 @@
+/* 모달창 관련 스타일 수정 */
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  overflow-y: auto;
+}
+
+.modal-content {
+  background-color: white;
+  margin: 10% auto;
+  padding: 20px;
+  border-radius: 8px;
+  width: 80%;
+  max-width: 600px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  position: relative;
+  z-index: 1001;
+}
+
+/* 모달창 z-index 조정 */
+#schedule-form-modal { z-index: 1010; }
+#schedule-form-modal .modal-content { z-index: 1011; }
+#schedule-detail-modal { z-index: 1020; }
+#schedule-detail-modal .modal-content { z-index: 1021; }
+#schedules-list-modal { z-index: 1030; }
+#schedules-list-modal .modal-content { z-index: 1031; }
+
+/* 모달창이 열릴 때 다른 모달창 숨기기 */
+.modal.active {
+  display: block;
+}
+
+/* 모달창 닫기 버튼 스타일 */
+.close-modal {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  font-size: 24px;
+  font-weight: bold;
+  cursor: pointer;
+  color: #aaa;
+  transition: color 0.3s;
+}
+
+.close-modal:hover {
+  color: #333;
+}

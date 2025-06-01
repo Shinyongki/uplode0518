@@ -1,0 +1,229 @@
+/* 일정 관리 스타일 */
+
+/* 일정 모달 스타일 */
+.modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+}
+
+.modal-content {
+  position: relative;
+  background-color: #fff;
+  margin: 10% auto;
+  padding: 20px;
+  border-radius: 8px;
+  width: 80%;
+  max-width: 600px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+  margin-bottom: 15px;
+}
+
+.modal-header h2 {
+  font-size: 1.5rem;
+  margin: 0;
+  color: #333;
+}
+
+.close {
+  color: #aaa;
+  font-size: 28px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.close:hover {
+  color: #555;
+}
+
+/* 일정 목록 스타일 */
+#schedules-list {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.schedule-count {
+  font-size: 0.9rem;
+  color: #666;
+  margin-bottom: 10px;
+  padding: 5px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.empty-message {
+  text-align: center;
+  padding: 30px 0;
+  color: #888;
+}
+
+.empty-message i {
+  font-size: 3rem;
+  margin-bottom: 10px;
+  color: #ccc;
+}
+
+.schedule-item {
+  padding: 12px;
+  border-radius: 6px;
+  background-color: #f9f9f9;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-left: 4px solid #4a90e2;
+}
+
+.schedule-item:hover {
+  background-color: #f0f0f0;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.schedule-item.completed {
+  border-left-color: #4caf50;
+}
+
+.schedule-item.pending {
+  border-left-color: #ffc107;
+}
+
+.schedule-item.canceled {
+  border-left-color: #f44336;
+  opacity: 0.7;
+}
+
+.schedule-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+
+.schedule-time {
+  font-weight: bold;
+  color: #555;
+}
+
+.schedule-status {
+  font-size: 0.8rem;
+  padding: 2px 6px;
+  border-radius: 10px;
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.schedule-title {
+  font-weight: bold;
+  margin-bottom: 5px;
+  font-size: 1.1rem;
+  color: #333;
+}
+
+.schedule-org {
+  font-size: 0.9rem;
+  color: #666;
+  margin-bottom: 3px;
+}
+
+.schedule-committee {
+  font-size: 0.8rem;
+  font-style: italic;
+}
+
+/* 일정 추가 버튼 */
+.add-schedule-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 12px;
+  background-color: #f0f7ff;
+  border: 1px dashed #4a90e2;
+  border-radius: 6px;
+  color: #4a90e2;
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: 15px;
+  transition: all 0.2s ease;
+}
+
+.add-schedule-btn:hover {
+  background-color: #e3f0ff;
+}
+
+.add-schedule-btn i {
+  margin-right: 8px;
+  font-size: 1.1rem;
+}
+
+/* 캘린더 날짜 셀 스타일 */
+.date-cell {
+  position: relative;
+  min-height: 100px;
+  padding: 5px;
+  border: 1px solid #ddd;
+  background-color: #fff;
+  transition: background-color 0.2s ease;
+}
+
+.date-cell:hover {
+  background-color: #f8f9fa;
+}
+
+.date-cell.has-schedules {
+  background-color: #f0f7ff;
+}
+
+.date-cell.has-schedules:hover {
+  background-color: #e3f0ff;
+}
+
+.date-number {
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.schedule-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 3px;
+}
+
+.schedule-preview {
+  font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  background-color: rgba(74, 144, 226, 0.1);
+}
+
+/* 반응형 스타일 */
+@media (max-width: 768px) {
+  .modal-content {
+    width: 95%;
+    margin: 5% auto;
+  }
+  
+  .date-cell {
+    min-height: 60px;
+  }
+  
+  .schedule-preview {
+    display: none;
+  }
+}
