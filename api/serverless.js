@@ -428,6 +428,147 @@ app.post('/auth/login', (req, res) => {
   }
 });
 
+// 구글 시트에서 위원별 담당 기관 정보 가져오는 API 엔드포인트
+app.get('/api/sheets/organizations', async (req, res) => {
+  try {
+    console.log('[API] /api/sheets/organizations 요청 받음');
+    
+    // 요청에서 위원명 가져오기
+    const committeeName = req.query.committeeName;
+    const sheetName = req.query.sheet || '위원별_담당기관';
+    
+    console.log(`[API] 위원명: ${committeeName}, 시트명: ${sheetName}`);
+    
+    if (!committeeName) {
+      return res.status(400).json({
+        status: 'error',
+        message: '위원명이 제공되지 않았습니다.'
+      });
+    }
+    
+    // 구글 시트에서 데이터 가져오기
+    const sheetsHelper = require('./sheets-helper');
+    
+    try {
+      console.log(`[API] 구글 시트에서 데이터 가져오기 시도 (위원: ${committeeName})`);
+      
+      // 시트 데이터 가져오기
+      const spreadsheetId = process.env.SPREADSHEET_ID || '1Xt7Qy5Hx1wgxOFV3XYQUlwoWkI2-vKT6KGs0FeM_xTI';
+      console.log(`[API] 사용 중인 스프레드시트 ID: ${spreadsheetId}`);
+      const values = await sheetsHelper.readSheetData(spreadsheetId, `${sheetName}!A:H`);
+      
+      if (!values || values.length < 2) {
+        throw new Error('시트 데이터가 없거나 형식이 올바르지 않습니다.');
+      }
+      
+      // 헤더 행 추출
+      const headers = values[0];
+      console.log('[API] 헤더 행:', headers);
+      
+      // 데이터 행을 JSON 객체로 변환
+      const allMatchings = values.slice(1).map(row => {
+        const matching = {};
+        headers.forEach((header, index) => {
+          if (index < row.length) {
+            matching[header] = row[index];
+          }
+        });
+        return matching;
+      });
+      
+      // 위원명으로 필터링
+      const committeeMatchings = allMatchings.filter(item => 
+        item.committeeName === committeeName || 
+        item.위원명 === committeeName || 
+        item.committee === committeeName
+      );
+      
+      console.log(`[API] ${committeeName} 위원 매칭 데이터 ${committeeMatchings.length}개 찾음`);
+      
+      if (committeeMatchings.length > 0) {
+        // 주담당과 부담당 기관 분류
+        const mainOrgs = committeeMatchings
+          .filter(item => item.role === '주담당' || item.role === '주담당기관')
+          .map(item => ({
+            id: item.orgId || item.orgCode,
+            code: item.orgCode,
+            name: item.orgName,
+            region: item.region || '경상남도'
+          }));
+        
+        const subOrgs = committeeMatchings
+          .filter(item => item.role === '부담당' || item.role === '부담당기관')
+          .map(item => ({
+            id: item.orgId || item.orgCode,
+            code: item.orgCode,
+            name: item.orgName,
+            region: item.region || '경상남도'
+          }));
+        
+        return res.status(200).json({
+          status: 'success',
+          organizations: {
+            main: mainOrgs,
+            sub: subOrgs
+          },
+          organizationObjects: {
+            main: mainOrgs,
+            sub: subOrgs
+          },
+          meta: {
+            source: 'sheets',
+            count: committeeMatchings.length
+          }
+        });
+      } else {
+        throw new Error(`${committeeName} 위원의 매칭 데이터를 찾을 수 없습니다.`);
+      }
+    } catch (sheetError) {
+      console.error('[API] 구글 시트 데이터 가져오기 오류:', sheetError.message);
+      console.error('[API] 오류 상세정보:', sheetError.stack);
+      
+      // 오류 발생 시 빈 배열 반환
+      return res.status(200).json({
+        status: 'success',
+        message: '기본 데이터를 사용합니다.',
+        organizations: {
+          main: [],
+          sub: []
+        },
+        organizationObjects: {
+          main: [],
+          sub: []
+        },
+        meta: {
+          source: 'fallback',
+          error: sheetError.message
+        }
+      });
+    }
+  } catch (error) {
+    console.error('[API] /api/sheets/organizations 오류:', error.message);
+    console.error('[API] 오류 상세정보:', error.stack);
+    
+    // 오류 발생 시 500 오류 대신 200 응답과 빈 배열 반환
+    return res.status(200).json({
+      status: 'success',
+      message: '오류가 발생하여 기본 데이터를 사용합니다.',
+      organizations: {
+        main: [],
+        sub: []
+      },
+      organizationObjects: {
+        main: [],
+        sub: []
+      },
+      meta: {
+        source: 'error-fallback',
+        error: error.message
+      }
+    });
+  }
+});
+
 // 위원별 담당 기관 정보 API 엔드포인트
 app.get('/api/sheets/committee-orgs', async (req, res) => {
   try {
