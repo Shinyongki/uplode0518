@@ -855,6 +855,108 @@ app.post('/api/save-to-sheet', async (req, res) => {
   }
 });
 
+// 일정 데이터 API 엔드포인트
+app.get('/api/sheets/schedules', async (req, res) => {
+  try {
+    console.log('[API] /api/sheets/schedules 요청 받음');
+    
+    // 구글 시트에서 일정 데이터 가져오기
+    try {
+      const scheduleData = await sheetsHelper.readSheet('일정');
+      console.log(`[API] 일정 데이터 ${scheduleData.length}개 행 로드 완료`);
+      
+      // 일정 데이터 변환
+      const schedules = scheduleData.slice(1).map((row, index) => {
+        return {
+          id: `S${index + 1}`,
+          date: row[0] || '',           // 날짜
+          committeeId: row[1] || '',    // 위원ID
+          committeeName: row[2] || '',  // 위원명
+          orgCode: row[3] || '',        // 기관코드
+          orgName: row[4] || '',        // 기관명
+          title: row[5] || '',          // 제목
+          description: row[6] || '',    // 설명
+          status: row[7] || '예정',      // 상태
+          createdAt: row[8] || new Date().toISOString() // 생성일시
+        };
+      });
+      
+      // 성공 응답
+      res.status(200).json({
+        status: 'success',
+        data: schedules
+      });
+    } catch (sheetError) {
+      console.error('구글 시트에서 일정 데이터 가져오기 실패:', sheetError);
+      
+      // 실패 시 빈 배열 반환
+      res.status(200).json({
+        status: 'success',
+        data: [],
+        message: '구글 시트에서 일정 데이터를 가져오지 못했습니다.'
+      });
+    }
+  } catch (error) {
+    console.error('일정 API 오류:', error);
+    res.status(500).json({
+      status: 'error',
+      message: '서버 오류가 발생했습니다.',
+      error: error.message
+    });
+  }
+});
+
+// 일정 API 엔드포인트 (기존 /api/schedules 경로 지원)
+app.get('/api/schedules', async (req, res) => {
+  try {
+    console.log('[API] /api/schedules 요청 받음');
+    
+    // 구글 시트에서 일정 데이터 가져오기
+    try {
+      const scheduleData = await sheetsHelper.readSheet('일정');
+      console.log(`[API] 일정 데이터 ${scheduleData.length}개 행 로드 완료`);
+      
+      // 일정 데이터 변환
+      const schedules = scheduleData.slice(1).map((row, index) => {
+        return {
+          id: `S${index + 1}`,
+          date: row[0] || '',           // 날짜
+          committeeId: row[1] || '',    // 위원ID
+          committeeName: row[2] || '',  // 위원명
+          orgCode: row[3] || '',        // 기관코드
+          orgName: row[4] || '',        // 기관명
+          title: row[5] || '',          // 제목
+          description: row[6] || '',    // 설명
+          status: row[7] || '예정',      // 상태
+          createdAt: row[8] || new Date().toISOString() // 생성일시
+        };
+      });
+      
+      // 성공 응답
+      res.status(200).json({
+        status: 'success',
+        data: schedules
+      });
+    } catch (sheetError) {
+      console.error('구글 시트에서 일정 데이터 가져오기 실패:', sheetError);
+      
+      // 실패 시 빈 배열 반환
+      res.status(200).json({
+        status: 'success',
+        data: [],
+        message: '구글 시트에서 일정 데이터를 가져오지 못했습니다.'
+      });
+    }
+  } catch (error) {
+    console.error('일정 API 오류:', error);
+    res.status(500).json({
+      status: 'error',
+      message: '서버 오류가 발생했습니다.',
+      error: error.message
+    });
+  }
+});
+
 // 기타 모든 경로에 대한 처리 (SPA 지원)
 app.get('*', (req, res, next) => {
   // API 요청이나 정적 파일 요청이 아닌 경우 index.html 서빙

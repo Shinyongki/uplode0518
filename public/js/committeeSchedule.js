@@ -384,8 +384,8 @@ function generateSampleSchedules() {
   const year = today.getFullYear();
   const month = today.getMonth();
   
-  // 기관 목록 - 실제 데이터 기반
-  const allOrganizations = [
+  // 기관 목록 - 실제 데이터 기반 (지역 변수로 선언)
+  const sampleOrganizations = [
     { code: 'A48170002', name: '대한노인회 고성군지회', address: '경상남도 고성군 고성읍 중앙로 145' },
     { code: 'A48170003', name: '한올생명의집', address: '경상남도 고성군 개천면 청광리 201-1' },
     { code: 'A48240001', name: '화방남해', address: '경상남도 남해군 남해읍 남해대로 2935-3' },
@@ -433,7 +433,7 @@ function generateSampleSchedules() {
       // 이번 달에 담당 기관별로 1개의 일정 생성
       committee.orgs.forEach(orgCode => {
         // 해당 기관 정보 찾기
-        const org = allOrganizations.find(o => o.code === orgCode);
+        const org = sampleOrganizations.find(o => o.code === orgCode);
         if (!org) return;
         
         // 랜덤 날짜 (1-28일)
