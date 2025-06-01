@@ -858,50 +858,35 @@ app.post('/api/save-to-sheet', async (req, res) => {
 // 일정 데이터 API 엔드포인트
 app.get('/api/sheets/schedules', async (req, res) => {
   try {
-    console.log('[API] /api/sheets/schedules 요청 받음');
+    // 구글 시트에서 데이터 가져오기
+    const sheets = await sheetsHelper.getSheets();
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: process.env.SPREADSHEET_ID,
+      range: '방문일정!A2:J',
+    });
+
+    const rows = response.data.values || [];
     
-    // 구글 시트에서 일정 데이터 가져오기
-    try {
-      const scheduleData = await sheetsHelper.readSheet('일정');
-      console.log(`[API] 일정 데이터 ${scheduleData.length}개 행 로드 완료`);
-      
-      // 일정 데이터 변환
-      const schedules = scheduleData.slice(1).map((row, index) => {
-        return {
-          id: `S${index + 1}`,
-          date: row[0] || '',           // 날짜
-          committeeId: row[1] || '',    // 위원ID
-          committeeName: row[2] || '',  // 위원명
-          orgCode: row[3] || '',        // 기관코드
-          orgName: row[4] || '',        // 기관명
-          title: row[5] || '',          // 제목
-          description: row[6] || '',    // 설명
-          status: row[7] || '예정',      // 상태
-          createdAt: row[8] || new Date().toISOString() // 생성일시
-        };
-      });
-      
-      // 성공 응답
-      res.status(200).json({
-        status: 'success',
-        data: schedules
-      });
-    } catch (sheetError) {
-      console.error('구글 시트에서 일정 데이터 가져오기 실패:', sheetError);
-      
-      // 실패 시 빈 배열 반환
-      res.status(200).json({
-        status: 'success',
-        data: [],
-        message: '구글 시트에서 일정 데이터를 가져오지 못했습니다.'
-      });
-    }
+    // 일정 데이터 매핑
+    const schedules = rows.map(row => ({
+      id: row[0] || '',           // 일정 ID
+      organizationCode: row[1] || '', // 기관코드
+      organizationName: row[2] || '', // 기관명
+      committeeName: row[3] || '',    // 담당위원
+      visitDate: row[4] || '',        // 방문일자
+      startTime: row[5] || '',        // 시작시간
+      endTime: row[6] || '',          // 종료시간
+      status: row[7] || '',           // 상태
+      notes: row[8] || '',            // 비고
+      lastUpdated: row[9] || ''       // 최종수정일시
+    }));
+
+    return res.json({ status: 'success', data: schedules });
   } catch (error) {
-    console.error('일정 API 오류:', error);
-    res.status(500).json({
+    console.error('일정 데이터 조회 오류:', error);
+    return res.status(500).json({
       status: 'error',
-      message: '서버 오류가 발생했습니다.',
-      error: error.message
+      message: error.message
     });
   }
 });
