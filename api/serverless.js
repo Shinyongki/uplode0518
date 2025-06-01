@@ -316,9 +316,9 @@ app.get('/api/organizations', async (req, res) => {
       for (let i = 1; i < matchingData.length; i++) {
         const row = matchingData[i];
         if (row && row.length >= 4) {
-          const orgCode = row[3]; // 기관코드 (위원별_담당기관 시트 형식에 맞게 수정)
-          const committeeName = row[1] || ''; // 위원명
-          const role = row[6] || ''; // 담당구분
+          const orgCode = row[0]; // 기관코드 (위원별_담당기관 시트의 첫 번째 열)
+          const committeeName = row[1] || ''; // 위원명 (위원별_담당기관 시트의 두 번째 열)
+          const role = row[3] || ''; // 담당구분 (위원별_담당기관 시트의 네 번째 열)
           
           if (!orgCode) continue;
           
@@ -898,6 +898,70 @@ app.get('/api/sheets/schedules', async (req, res) => {
     }
   } catch (error) {
     console.error('일정 API 오류:', error);
+    res.status(500).json({
+      status: 'error',
+      message: '서버 오류가 발생했습니다.',
+      error: error.message
+    });
+  }
+});
+
+// 위원별 담당기관 조회 API 엔드포인트
+app.get('/api/sheets/committee-orgs', async (req, res) => {
+  try {
+    console.log('[API] /api/sheets/committee-orgs 요청 받음');
+    const committeeName = req.query.committeeName || '';
+    console.log(`위원명: ${committeeName}`);
+    
+    // 구글 시트에서 위원별 담당기관 데이터 가져오기
+    try {
+      const sheetData = await sheetsHelper.readSheet('위원별_담당기관');
+      console.log(`[API] 위원별 담당기관 데이터 ${sheetData.length}개 행 로드 완료`);
+      
+      // 헤더 행 제외
+      const dataRows = sheetData.slice(1);
+      
+      // 위원명으로 필터링 (위원명이 제공되지 않으면 모든 데이터 반환)
+      let filteredData = dataRows;
+      if (committeeName && committeeName !== '전체') {
+        filteredData = dataRows.filter(row => {
+          // 위원명이 있는 열 인덱스를 확인 (일반적으로 2번째 열)
+          const committeeNameCol = 1;
+          return row[committeeNameCol] === committeeName || 
+                 (row[committeeNameCol] && row[committeeNameCol].includes(committeeName));
+        });
+      }
+      
+      // 데이터 변환
+      const organizations = filteredData.map(row => {
+        return {
+          orgCode: row[0] || '',       // 기관코드
+          committeeName: row[1] || '', // 위원명
+          orgName: row[2] || '',       // 기관명
+          region: row[3] || '',        // 지역
+          address: row[4] || '',       // 주소
+          contactInfo: row[5] || '',   // 연락처
+          status: row[6] || '활성'    // 상태
+        };
+      });
+      
+      // 성공 응답
+      res.status(200).json({
+        status: 'success',
+        data: organizations
+      });
+    } catch (sheetError) {
+      console.error('구글 시트에서 위원별 담당기관 데이터 가져오기 실패:', sheetError);
+      
+      // 실패 시 빈 배열 반환
+      res.status(200).json({
+        status: 'success',
+        data: [],
+        message: '구글 시트에서 위원별 담당기관 데이터를 가져오지 못했습니다.'
+      });
+    }
+  } catch (error) {
+    console.error('위원별 담당기관 API 오류:', error);
     res.status(500).json({
       status: 'error',
       message: '서버 오류가 발생했습니다.',
