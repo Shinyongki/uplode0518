@@ -19,6 +19,11 @@ if (typeof window.masterOrganizations === 'undefined') {
   window.masterOrganizations = [];
 }
 
+// 전역 변수: 마스터 기관 목록 (중복 선언 방지)
+if (typeof window.allOrganizations === 'undefined') {
+  window.allOrganizations = [];
+}
+
 // 전역 변수: 위원 목록 (중복 선언 방지)
 if (typeof window.allCommittees === 'undefined') {
   window.allCommittees = [];

@@ -213,6 +213,169 @@ app.get('/api/sheets/schedules', async (req, res) => {
   }
 });
 
+// 기관 목록 API 엔드포인트
+app.get('/api/organizations', async (req, res) => {
+  try {
+    console.log('[API] /api/organizations 요청 받음');
+    
+    // 기관 데이터 저장 배열
+    const organizations = [];
+    
+    // 구글 시트에서 기관 목록 가져오기
+    const sheetsHelper = require('./sheets-helper');
+    // sheetsHelper는 이미 객체이므로 new를 사용하지 않음
+    
+    console.log('[API] 구글 시트에서 데이터 로드 시도...');
+    
+    let orgListData = [];
+    let matchingData = [];
+    
+    try {
+      // 기관목록 시트에서 기관 데이터 가져오기
+      const spreadsheetId = process.env.SPREADSHEET_ID || '1Xt7Qy5Hx1wgxOFV3XYQUlwoWkI2-vKT6KGs0FeM_xTI';
+      orgListData = await sheetsHelper.readSheetData(spreadsheetId, '기관목록');
+      console.log(`[API] 기관 목록 ${orgListData.length}개 행 로드 완료`);
+      
+      if (orgListData.length > 1) {
+        console.log(`[API] 기관 목록 첫 번째 행: ${JSON.stringify(orgListData[0])}`);
+        console.log(`[API] 기관 목록 두 번째 행: ${JSON.stringify(orgListData[1])}`);
+      }
+      
+      // 위원별_담당기관 시트에서 매칭 데이터 가져오기
+      matchingData = await sheetsHelper.readSheetData(spreadsheetId, '위원별_담당기관');
+      console.log(`[API] 위원별 담당기관 데이터 ${matchingData.length}개 행 로드 완료`);
+    } catch (sheetError) {
+      console.error('[API] 구글 시트 데이터 로드 오류:', sheetError);
+      console.error('[API] 오류 상세정보:', sheetError.stack);
+      
+      // 오류 발생 시 빈 배열 반환
+      return res.status(200).json({
+        status: 'success',
+        message: '기본 데이터를 사용합니다.',
+        data: [],
+        meta: {
+          source: 'fallback',
+          error: sheetError.message
+        }
+      });
+    }
+    
+    // 시트 데이터 처리
+    if (orgListData.length > 1) {
+      // 첫 번째 행은 헤더로 간주
+      const headers = orgListData[0];
+      
+      // 나머지 행은 데이터로 처리
+      for (let i = 1; i < orgListData.length; i++) {
+        const row = orgListData[i];
+        if (row.length < 3) continue; // 데이터가 부족한 행 건너뛰기
+        
+        const orgData = {};
+        
+        // 헤더와 데이터 매핑
+        for (let j = 0; j < headers.length; j++) {
+          const header = headers[j];
+          const value = row[j] || '';
+          
+          // 헤더 이름에 따라 필드 이름 지정
+          if (header.includes('기관코드') || header.includes('기관 코드')) {
+            orgData.orgCode = value;
+          } else if (header.includes('기관명') || header.includes('기관 이름')) {
+            orgData.orgName = value;
+          } else if (header.includes('지역') || header.includes('시군')) {
+            orgData.region = value;
+          } else if (header.includes('주소')) {
+            orgData.address = value;
+          } else if (header.includes('전화번호')) {
+            orgData.phone = value;
+          } else if (header.includes('담당자')) {
+            orgData.manager = value;
+          } else if (header.includes('비고')) {
+            orgData.notes = value;
+          } else {
+            // 기타 필드는 원래 헤더 이름 그대로 사용
+            orgData[header] = value;
+          }
+        }
+        
+        // 필수 필드 확인
+        if (orgData.orgCode && orgData.orgName) {
+          organizations.push(orgData);
+        }
+      }
+    }
+    
+    // 매칭 데이터 처리 및 기관 정보에 추가
+    if (matchingData.length > 1 && organizations.length > 0) {
+      const matchingHeaders = matchingData[0];
+      
+      // 각 기관에 대한 매칭 정보 추가
+      for (const org of organizations) {
+        org.committees = [];
+        
+        // 매칭 데이터에서 해당 기관코드와 일치하는 항목 찾기
+        for (let i = 1; i < matchingData.length; i++) {
+          const matchingRow = matchingData[i];
+          
+          // 기관코드 인덱스 찾기
+          const orgCodeIndex = matchingHeaders.findIndex(header => 
+            header.includes('기관코드') || header.includes('기관 코드'));
+          
+          if (orgCodeIndex !== -1 && matchingRow[orgCodeIndex] === org.orgCode) {
+            // 위원 정보 추출
+            const committeeNameIndex = matchingHeaders.findIndex(header => 
+              header.includes('위원명') || header.includes('위원 이름'));
+            
+            const committeeIdIndex = matchingHeaders.findIndex(header => 
+              header.includes('위원ID') || header.includes('위원 ID'));
+            
+            const roleIndex = matchingHeaders.findIndex(header => 
+              header.includes('역할') || header.includes('유형'));
+            
+            if (committeeNameIndex !== -1) {
+              const committeeName = matchingRow[committeeNameIndex] || '';
+              const committeeId = committeeIdIndex !== -1 ? matchingRow[committeeIdIndex] || '' : '';
+              const role = roleIndex !== -1 ? matchingRow[roleIndex] || 'main' : 'main';
+              
+              if (committeeName) {
+                org.committees.push({
+                  id: committeeId,
+                  name: committeeName,
+                  role: role
+                });
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    // 응답 반환
+    return res.status(200).json({
+      status: 'success',
+      data: organizations,
+      meta: {
+        count: organizations.length,
+        source: 'google-sheets'
+      }
+    });
+  } catch (error) {
+    console.error('[API] /api/organizations 오류:', error);
+    console.error('[API] 오류 상세정보:', error.stack);
+    
+    // 오류 발생 시 빈 배열 반환
+    return res.status(200).json({
+      status: 'success',
+      message: '오류가 발생하여 기본 데이터를 사용합니다.',
+      data: [],
+      meta: {
+        source: 'error-fallback',
+        error: error.message
+      }
+    });
+  }
+});
+
 // 로그인 API 엔드포인트
 app.post('/auth/login', (req, res) => {
   try {
@@ -261,6 +424,33 @@ app.post('/auth/login', (req, res) => {
       status: 'error',
       message: '서버 오류가 발생했습니다.',
       error: error.message
+    });
+  }
+});
+
+// 위원별 담당 기관 매칭 정보 API 엔드포인트
+app.get('/api/committees/matching', async (req, res) => {
+  try {
+    console.log('[API] /api/committees/matching 요청 받음');
+    
+    // committees-matching.js 파일에서 처리 로직 가져오기
+    const committeesMatchingHandler = require('./committees-matching');
+    
+    // 요청 처리
+    return committeesMatchingHandler(req, res);
+  } catch (error) {
+    console.error('[API] /api/committees/matching 오류:', error);
+    console.error('[API] 오류 상세정보:', error.stack);
+    
+    // 오류 발생 시 빈 배열 반환
+    return res.status(200).json({
+      status: 'success',
+      message: '오류가 발생하여 기본 데이터를 사용합니다.',
+      data: [],
+      meta: {
+        source: 'error-fallback',
+        error: error.message
+      }
     });
   }
 });
