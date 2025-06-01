@@ -40,7 +40,9 @@ module.exports = async (req, res) => {
       console.log(`[api/committee-orgs] 구글 시트에서 데이터 가져오기 시도 (위원: ${committeeName})`);
       
       // 시트 데이터 가져오기
-      const values = await sheetsHelper.readSheetData('위원별_담당기관!A:H');
+      const spreadsheetId = process.env.SPREADSHEET_ID || '11eWVWRY2cTU5nat3zsTSTjvhvk-LxhistC1LmfBNvPU';
+      console.log(`[api/committee-orgs] 사용 중인 스프레드시트 ID: ${spreadsheetId}`);
+      const values = await sheetsHelper.readSheetData(spreadsheetId, '위원별_담당기관!A:H');
       
       if (!values || values.length < 2) {
         throw new Error('시트 데이터가 없거나 형식이 올바르지 않습니다.');
@@ -108,6 +110,7 @@ module.exports = async (req, res) => {
     }
   } catch (error) {
     console.error('[api/committee-orgs] 처리 오류:', error.message);
+    console.error('[api/committee-orgs] 오류 상세정보:', error.stack);
     
     return res.status(500).json({
       status: 'error',

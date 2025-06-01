@@ -14,12 +14,20 @@ if (typeof window.syncSchedulesWithSheet !== 'function') {
   document.head.appendChild(sheetScript);
 }
 
-// 전역 변수: 기관 목록
-let masterOrganizations = [];
-// 전역 변수: 위원 목록
-let allCommittees = [];
-// 전역 변수: 위원-기관 매칭 정보
-let allMatchings = [];
+// 전역 변수: 기관 목록 (중복 선언 방지)
+if (typeof window.masterOrganizations === 'undefined') {
+  window.masterOrganizations = [];
+}
+
+// 전역 변수: 위원 목록 (중복 선언 방지)
+if (typeof window.allCommittees === 'undefined') {
+  window.allCommittees = [];
+}
+
+// 전역 변수: 위원-기관 매칭 정보 (중복 선언 방지)
+if (typeof window.allMatchings === 'undefined') {
+  window.allMatchings = [];
+}
 
 // 특별 기관 목록 (committeeSchedule.js와 동일하게 유지)
 const specialOrganizations = [
@@ -307,7 +315,7 @@ async function showMasterDashboard() {
     await window.loadMasterDashboardData();
     
     // 매칭 테이블 자동 업데이트 (새로고침 버튼 클릭 없이도 표시되도록)
-    if (allMatchings && allMatchings.length > 0) {
+    if (window.allMatchings && window.allMatchings.length > 0) {
       console.log('로드된 매칭 정보로 테이블 자동 업데이트');
       updateMatchingTable();
     } else {
@@ -430,9 +438,9 @@ window.loadMasterDashboardData = async () => {
       console.warn(`기관 목록 API 조회 실패: ${response.status}. 로컬 데이터를 사용합니다.`);
       // API 실패 시 로컬 스토리지 데이터 사용
       if (localOrganizations.length > 0) {
-        masterOrganizations = localOrganizations;
-        console.log(`로컬 스토리지에서 가져온 ${masterOrganizations.length}개의 기관 정보를 사용합니다.`);
-        document.getElementById('total-orgs-count').textContent = masterOrganizations.length.toString();
+        window.masterOrganizations = localOrganizations;
+        console.log(`로컬 스토리지에서 가져온 ${window.masterOrganizations.length}개의 기관 정보를 사용합니다.`);
+        document.getElementById('total-orgs-count').textContent = window.masterOrganizations.length.toString();
       } else {
         document.getElementById('total-orgs-count').textContent = '55'; // 기본값
       }
@@ -479,20 +487,20 @@ window.loadMasterDashboardData = async () => {
         }
         
         // 전체 기관 목록 업데이트
-        masterOrganizations = apiOrgs;
+        window.masterOrganizations = apiOrgs;
         
         // 로컬 스토리지 업데이트
-        localStorage.setItem('all_organizations', JSON.stringify(masterOrganizations));
-        console.log(`로컬 스토리지에 총 ${masterOrganizations.length}개의 기관 정보 업데이트`);
+        localStorage.setItem('all_organizations', JSON.stringify(window.masterOrganizations));
+        console.log(`로컬 스토리지에 총 ${window.masterOrganizations.length}개의 기관 정보 업데이트`);
         
         // 기관 수 표시
-        document.getElementById('total-orgs-count').textContent = masterOrganizations.length.toString();
+        document.getElementById('total-orgs-count').textContent = window.masterOrganizations.length.toString();
       } else {
         console.error('조직 목록 조회 실패:', data.message);
         // 실패해도 로컬 스토리지 데이터 사용
         if (localOrganizations.length > 0) {
-          masterOrganizations = localOrganizations;
-          document.getElementById('total-orgs-count').textContent = masterOrganizations.length.toString();
+          window.masterOrganizations = localOrganizations;
+          document.getElementById('total-orgs-count').textContent = window.masterOrganizations.length.toString();
         } else {
           document.getElementById('total-orgs-count').textContent = '55'; // 기본값
         }
@@ -525,7 +533,7 @@ window.loadMasterDashboardData = async () => {
       
       console.log(`[DEBUG] 완료율 계산: ${completedSchedules}/${totalSchedules} = ${completionRate}%`);
       
-      console.log('기관 목록 로드 완료:', masterOrganizations.length);
+      console.log('기관 목록 로드 완료:', window.masterOrganizations.length);
     
 
     // 2. 위원 목록 - 임시 데이터 사용
@@ -551,7 +559,7 @@ window.loadMasterDashboardData = async () => {
       console.log('위원 목록 로드 완료:', allCommittees.length);
     } catch (error) {
       console.error('위원 목록 처리 중 오류:', error);
-      allCommittees = [];
+      window.allCommittees = [];
       
       // 위원 수 기본값 설정
       const committeesCountElement = document.getElementById('committees-count');
@@ -600,15 +608,15 @@ window.loadMasterDashboardData = async () => {
         }
         
         // 기관 데이터가 없는 경우 매칭 데이터에서 추출
-        if (!masterOrganizations || masterOrganizations.length === 0) {
+        if (!window.masterOrganizations || window.masterOrganizations.length === 0) {
           const uniqueOrgs = new Map();
           
           // 매칭 데이터에서 기관 정보 추출 - 디버깅 로그 추가
-          console.log('매칭 데이터에서 기관 정보 추출 시작:', allMatchings.length, '개의 매칭 데이터');
-          console.log('매칭 데이터 첫 번째 항목 예시:', allMatchings[0]);
+          console.log('매칭 데이터에서 기관 정보 추출 시작:', window.allMatchings.length, '개의 매칭 데이터');
+          console.log('매칭 데이터 첫 번째 항목 예시:', window.allMatchings[0]);
           
           // 매칭 데이터에서 기관 정보 추출 - 조건 완화
-          allMatchings.forEach((match, index) => {
+          window.allMatchings.forEach((match, index) => {
             // 기관 코드가 있으면 추출 시도
             if (match.orgCode) {
               // 기관명이 없으면 기관 코드를 기관명으로 사용
@@ -628,12 +636,12 @@ window.loadMasterDashboardData = async () => {
             }
           });
           
-          masterOrganizations = Array.from(uniqueOrgs.values());
-          console.log('매칭 데이터에서 추출한 기관 정보:', masterOrganizations.length, '개');
+          window.masterOrganizations = Array.from(uniqueOrgs.values());
+          console.log('매칭 데이터에서 추출한 기관 정보:', window.masterOrganizations.length, '개');
           
           // 추출된 기관 정보가 있는지 확인
-          if (masterOrganizations.length > 0) {
-            console.log('추출된 기관 정보 예시:', masterOrganizations.slice(0, 3));
+          if (window.masterOrganizations.length > 0) {
+            console.log('추출된 기관 정보 예시:', window.masterOrganizations.slice(0, 3));
           } else {
             console.warn('기관 정보를 추출하지 못했습니다. 매칭 데이터를 확인하세요.');
           }
@@ -644,7 +652,7 @@ window.loadMasterDashboardData = async () => {
           const uniqueCommittees = new Map();
           
           // 매칭 데이터에서 위원 정보 추출
-          allMatchings.forEach(match => {
+          window.allMatchings.forEach(match => {
             if (match.committeeId && match.committeeName) {
               uniqueCommittees.set(match.committeeId, {
                 id: match.committeeId,
@@ -667,8 +675,8 @@ window.loadMasterDashboardData = async () => {
         console.error('매칭 정보 조회 실패: 유효한 배열이 아님');
         
         // 샘플 데이터 대신 실제 데이터만 사용
-        allMatchings = [];
-        console.log('매칭 데이터가 없습니다. 새로고침을 통해 실제 데이터를 가져오세요.', allMatchings.length);
+        window.allMatchings = [];
+        console.log('매칭 데이터가 없습니다. 새로고침을 통해 실제 데이터를 가져오세요.', window.allMatchings.length);
         // refreshMatchingData 함수 호출을 통해 실제 데이터를 가져오도록 유도
         setTimeout(() => {
           refreshMatchingData();
@@ -678,7 +686,7 @@ window.loadMasterDashboardData = async () => {
       console.error('매칭 정보 처리 중 오류:', error);
       
       // 오류 발생 시 샘플 데이터 대신 실제 데이터만 사용
-      allMatchings = [];
+      window.allMatchings = [];
       console.log('오류 발생 시 매칭 데이터가 없습니다. 새로고침을 통해 실제 데이터를 가져오세요.');
       
       // refreshMatchingData 함수 호출을 통해 실제 데이터를 가져오도록 유도
@@ -725,7 +733,7 @@ window.loadMasterDashboardData = async () => {
         
         // 총 수행해야 할 지표 수 (기관 수 x 지표 수)
         const totalIndicatorsPerOrg = 63; // 각 기관당 지표 수
-        const totalOrgs = masterOrganizations.length || 51; // 전체 기관 수
+        const totalOrgs = window.masterOrganizations.length || 51; // 전체 기관 수
         const totalTasks = totalOrgs * totalIndicatorsPerOrg;
         
         // 완료율 계산 - 임시 데이터 사용
@@ -839,8 +847,8 @@ window.loadMasterDashboardData = async () => {
     document.getElementById('committees-count').textContent = '0';
     document.getElementById('total-orgs-count').textContent = '51';
     document.getElementById('monitoring-completion-rate').textContent = '0%';
-    allCommittees = [];
-    allOrganizations = [];
+    window.allCommittees = [];
+    window.allOrganizations = [];
     window.monitoringResults = [];
     
     // 오류 발생 시에도 로드 상태 초기화
@@ -903,7 +911,7 @@ window.refreshMatchingData = async () => {
     console.log('인증 헤더:', headers ? '설정됨' : '없음');
     
     // 기존 매칭 데이터 보존 (API 호출 실패 시 대비) - 더미 데이터 대신 실제 데이터만 사용
-    const existingMatchings = allMatchings.length > 0 ? [...allMatchings] : [];
+    const existingMatchings = window.allMatchings.length > 0 ? [...window.allMatchings] : [];
     console.log(`기존 매칭 데이터 백업: ${existingMatchings.length}개 항목`);
     
     let matchingData = {
@@ -985,7 +993,7 @@ window.refreshMatchingData = async () => {
     }
     
     // 받은 데이터 필드명 표준화 처리
-    allMatchings = rawMatchings.map(matching => {
+    window.allMatchings = rawMatchings.map(matching => {
       // 필드명 표준화
       return {
         committeeId: matching.committeeId || matching.위원ID || matching.committee_id || '',
@@ -998,8 +1006,8 @@ window.refreshMatchingData = async () => {
       };
     });
     
-    console.log('매칭 정보 처리 완료:', allMatchings.length);
-    console.log('매칭 정보 샘플:', allMatchings.length > 0 ? allMatchings[0] : '없음');
+    console.log('매칭 정보 처리 완료:', window.allMatchings.length);
+    console.log('매칭 정보 샘플:', window.allMatchings.length > 0 ? window.allMatchings[0] : '없음');
     
     // 매칭 데이터 기반으로 테이블 업데이트
     updateMatchingTable();
@@ -1030,9 +1038,9 @@ window.updateMatchingTable = () => {
   // 로컬 스토리지에서 기관 정보 확인
   try {
     const savedOrgs = localStorage.getItem('all_organizations');
-    if (savedOrgs && (!masterOrganizations || masterOrganizations.length === 0)) {
-      masterOrganizations = JSON.parse(savedOrgs);
-      console.log(`로컬 스토리지에서 ${masterOrganizations.length}개의 기관 정보를 가져왔습니다.`);
+    if (savedOrgs && (!window.masterOrganizations || window.masterOrganizations.length === 0)) {
+      window.masterOrganizations = JSON.parse(savedOrgs);
+      console.log(`로컬 스토리지에서 ${window.masterOrganizations.length}개의 기관 정보를 가져왔습니다.`);
     }
   } catch (storageError) {
     console.error('로컬 스토리지에서 기관 정보 가져오기 실패:', storageError);
@@ -1040,8 +1048,8 @@ window.updateMatchingTable = () => {
   
   // 디버깅용 로그 추가
   console.log('매칭 데이터 현황:', {
-    allMatchings: allMatchings?.length || 0,
-    allOrganizations: masterOrganizations?.length || 0,
+    allMatchings: window.allMatchings?.length || 0,
+    allOrganizations: window.masterOrganizations?.length || 0,
     allCommittees: allCommittees?.length || 0
   });
   
@@ -1055,13 +1063,13 @@ window.updateMatchingTable = () => {
   console.log('매칭 데이터에서 기관 정보 새로 추출 시작...');
   
   // 매칭 데이터에서 기관 정보 추출 시도
-  if (allMatchings && allMatchings.length > 0) {
-    console.log('매칭 데이터에서 기관 정보 추출 시도:', allMatchings.length, '개의 매칭 데이터 처리');
+  if (window.allMatchings && window.allMatchings.length > 0) {
+    console.log('매칭 데이터에서 기관 정보 추출 시도:', window.allMatchings.length, '개의 매칭 데이터 처리');
     
     const uniqueOrgs = new Map();
     
     // 매칭 데이터에서 기관 정보 추출 - 모든 기관 추출
-    allMatchings.forEach((match, index) => {
+    window.allMatchings.forEach((match, index) => {
       // 다양한 필드명 확인
       const orgCode = match.orgCode || match.organizationCode || match.기관코드 || '';
       const orgName = match.orgName || match.organizationName || match.기관명 || `기관 ${orgCode}`;
@@ -1081,11 +1089,11 @@ window.updateMatchingTable = () => {
     });
     
     // 이전 기관 데이터가 있는 경우 보존
-    if (masterOrganizations && masterOrganizations.length > 0) {
-      console.log('기존 기관 데이터 보존:', masterOrganizations.length, '개');
+    if (window.masterOrganizations && window.masterOrganizations.length > 0) {
+      console.log('기존 기관 데이터 보존:', window.masterOrganizations.length, '개');
       
       // 기존 기관 데이터도 통합
-      masterOrganizations.forEach(org => {
+      window.masterOrganizations.forEach(org => {
         const orgCode = org.code || org.orgCode || org.기관코드 || org.organizationCode || '';
         const key = orgCode || `name_${org.name}`;
         
@@ -1098,15 +1106,15 @@ window.updateMatchingTable = () => {
     // 더미 데이터 추가 코드 제거 (2025-05-26)
     
     // 새로 추출한 기관 정보로 업데이트
-    masterOrganizations = Array.from(uniqueOrgs.values());
-    console.log('매칭 데이터에서 추출한 기관 정보:', masterOrganizations.length, '개');
+    window.masterOrganizations = Array.from(uniqueOrgs.values());
+    console.log('매칭 데이터에서 추출한 기관 정보:', window.masterOrganizations.length, '개');
     
-    if (masterOrganizations.length > 0) {
-      console.log('추출된 기관 정보 예시:', masterOrganizations.slice(0, 3));
+    if (window.masterOrganizations.length > 0) {
+      console.log('추출된 기관 정보 예시:', window.masterOrganizations.slice(0, 3));
       
       // 로컬 스토리지에 저장
       try {
-        localStorage.setItem('all_organizations', JSON.stringify(masterOrganizations));
+        localStorage.setItem('all_organizations', JSON.stringify(window.masterOrganizations));
       } catch (e) {
         console.warn('기관 정보 저장 중 오류:', e);
       }
@@ -1116,17 +1124,17 @@ window.updateMatchingTable = () => {
     console.log('매칭 데이터가 없습니다.');
     
     // 비어있는 배열 사용 (샘플 데이터 사용하지 않음)
-    if (!masterOrganizations || masterOrganizations.length === 0) {
-      allOrganizations = [];
+    if (!window.masterOrganizations || window.masterOrganizations.length === 0) {
+      window.allOrganizations = [];
     }
   }
   
   // 필터 값 가져오기 및 필터링된 기관 목록 생성
   const filterValue = document.getElementById('org-filter')?.value?.trim() || '';
-  console.log('Applying org filter:', filterValue, 'with total matchings:', allMatchings.length);
+  console.log('Applying org filter:', filterValue, 'with total matchings:', window.allMatchings.length);
   
   // 필터링 로직 개선 - 모든 기관이 표시되도록 수정
-  const filteredOrgs = masterOrganizations.filter(org => {
+  const filteredOrgs = window.masterOrganizations.filter(org => {
     // 조직 코드 키 대응 - 더 많은 필드 확인
     const orgCodeVal = org.code || org.orgCode || org.기관코드 || org.organizationCode || '';
     
@@ -1230,13 +1238,13 @@ window.updateMatchingTable = () => {
       const orgCodeForMatching = org.code || org.기관코드 || org.orgCode || org.organizationCode || '';
       
       // 다양한 매칭 필드명 대응 및 대소문자, 공백 처리
-      const mainMatchings = allMatchings.filter(m => {
+      const mainMatchings = window.allMatchings.filter(m => {
         const matchCode = m.orgCode || m.organizationCode || m.기관코드 || '';
         const matchRole = (m.role || m.담당유형 || '').toString().trim().toLowerCase();
         return matchCode === orgCodeForMatching && (matchRole === '주담당' || matchRole === 'main');
       });
 
-      const subMatchings = allMatchings.filter(m => {
+      const subMatchings = window.allMatchings.filter(m => {
         const matchCode = m.orgCode || m.organizationCode || m.기관코드 || '';
         const matchRole = (m.role || m.담당유형 || '').toString().trim().toLowerCase();
         return matchCode === orgCodeForMatching && (matchRole === '부담당' || matchRole === 'sub');
@@ -1396,7 +1404,7 @@ const saveOrgMatching = async (orgCode) => {
   try {
     console.log('saveOrgMatching 시작:', orgCode);
     // 기관 찾기
-    const organization = masterOrganizations.find(org => {
+    const organization = window.masterOrganizations.find(org => {
       const code = org.code || org.기관코드 || org.orgCode || '';
       return code === orgCode;
     });
@@ -1414,8 +1422,8 @@ const saveOrgMatching = async (orgCode) => {
     const orgNote = organization.note || '';
     
     // 현재 매칭 정보 가져오기
-    const mainCommittees = allMatchings.filter(m => m.orgCode === orgCode && m.role === '주담당');
-    const subCommittees = allMatchings.filter(m => m.orgCode === orgCode && m.role === '부담당');
+    const mainCommittees = window.allMatchings.filter(m => m.orgCode === orgCode && m.role === '주담당');
+    const subCommittees = window.allMatchings.filter(m => m.orgCode === orgCode && m.role === '부담당');
     
     console.log('현재 주담당:', mainCommittees);
     console.log('현재 부담당:', subCommittees);
@@ -1558,7 +1566,7 @@ const saveOrgMatching = async (orgCode) => {
         }
         
         // 기존 매칭에서 현재 기관 매칭 제외
-        const otherMatchings = allMatchings.filter(m => m.orgCode !== orgCode);
+        const otherMatchings = window.allMatchings.filter(m => m.orgCode !== orgCode);
         
         // 새로운 매칭 데이터 생성
         const updatedMatchings = [...otherMatchings, ...newMatchings];
@@ -1633,7 +1641,7 @@ const showAddMatchingModal = async () => {
             <label for="org-select" class="block mb-1 font-medium">기관 선택</label>
             <select id="org-select" class="border rounded px-3 py-2 w-full">
               <option value="">기관을 선택하세요</option>
-              ${masterOrganizations.map(org => `<option value="${org.code || org.기관코드}">${org.name || org.기관명} (${org.code || org.기관코드})</option>`).join('')}
+              ${window.masterOrganizations.map(org => `<option value="${org.code || org.기관코드}">${org.name || org.기관명} (${org.code || org.기관코드})</option>`).join('')}
             </select>
           </div>
           <div class="mb-4">
@@ -1680,8 +1688,8 @@ const showAddMatchingModal = async () => {
     }
     try {
       // 선택된 위원 및 기관 정보 확인
-      const committee = allCommittees.find(c => (c.ID || c.id) === committeeId);
-      const organization = masterOrganizations.find(org => (org.code || org.기관코드) === orgCode);
+      const committee = window.allCommittees.find(c => (c.ID || c.id) === committeeId);
+      const organization = window.masterOrganizations.find(org => (org.code || org.기관코드) === orgCode);
       
       if (!committee) {
         showMessage('위원 정보를 찾을 수 없습니다.', 'error');
@@ -1694,7 +1702,7 @@ const showAddMatchingModal = async () => {
       }
       
       // 기존 매칭에서 동일 기관, 역할의 매칭 제거
-      let filtered = allMatchings.filter(m => !(m.orgCode === orgCode && m.role === role));
+      let filtered = window.allMatchings.filter(m => !(m.orgCode === orgCode && m.role === role));
       
       // 새 매칭 추가
       const committeeName = committee.이름 || committee.name || '';
@@ -1764,7 +1772,7 @@ const showOrganizationsByRegion = () => {
     const regionMap = {};
     
     // 각 기관의 지역 정보 수집
-    masterOrganizations.forEach(org => {
+    window.masterOrganizations.forEach(org => {
       let region = org.region || '미분류';
       if (region.startsWith('창원시')) region = '창원시';
       if (!regionMap[region]) {
@@ -1872,9 +1880,9 @@ const showAddOrgModal = async () => {
             <select id="org-region-select" class="w-full border rounded px-3 py-2">
               <option value="">선택</option>
               ${(() => {
-                // 실제 masterOrganizations에서 시군 추출(중복X, 가나다순)
+                // 실제 window.masterOrganizations에서 시군 추출(중복X, 가나다순)
                 const sigunSet = new Set(
-                  masterOrganizations.map(org => {
+                  window.masterOrganizations.map(org => {
                     let region = org.region || '미분류';
                     if (region.startsWith('창원시')) return '창원시';
                     return region;
@@ -1946,7 +1954,7 @@ const saveNewOrganization = async () => {
       return;
     }
     // 중복 코드 확인
-    const isDuplicate = masterOrganizations.some(org => 
+    const isDuplicate = window.masterOrganizations.some(org => 
       (org.code === orgCode || org.기관코드 === orgCode));
     if (isDuplicate) {
       alert('이미 존재하는 기관코드입니다. 다른 코드를 입력해주세요.');
@@ -2016,7 +2024,7 @@ const saveNewOrganization = async () => {
     const subCommittee = allCommittees.find(c => c.id === subCommitteeId);
     
     if (mainCommittee) {
-      allMatchings.push({
+      window.allMatchings.push({
         committeeId: mainCommitteeId,
         committeeName: mainCommittee.name,
         orgCode: orgCode,
@@ -2027,7 +2035,7 @@ const saveNewOrganization = async () => {
     }
     
     if (subCommittee) {
-      allMatchings.push({
+      window.allMatchings.push({
         committeeId: subCommitteeId,
         committeeName: subCommittee.name,
         orgCode: orgCode,
@@ -2042,7 +2050,7 @@ const saveNewOrganization = async () => {
     console.log('매칭 정보가 로컬 스토리지에 저장되었습니다.');
     
     // 기관 목록에 추가
-    masterOrganizations.push(newOrg);
+    window.masterOrganizations.push(newOrg);
     
     // 로컬 스토리지에 기관 정보 저장 (서버 재시작 후에도 데이터 유지)
     try {
@@ -2076,7 +2084,7 @@ const saveNewOrganization = async () => {
     
     // 데이터 새로고침
     updateMatchingTable();
-    document.getElementById('total-orgs-count').textContent = masterOrganizations.length;
+    document.getElementById('total-orgs-count').textContent = window.masterOrganizations.length;
     
     // 성공 메시지 표시
     alert('새 기관이 성공적으로 추가되었습니다.');
@@ -2100,7 +2108,7 @@ const deleteOrganization = async (orgCode, orgName) => {
     console.log(`기관 삭제 시작: ${orgName} (${orgCode})`);
 
     // 1. 기관 관련 매칭 정보 삭제
-    const updatedMatchings = allMatchings.filter(m => m.orgCode !== orgCode);
+    const updatedMatchings = window.allMatchings.filter(m => m.orgCode !== orgCode);
     
     // 2. 매칭 정보 업데이트 API 호출
     const matchingResponse = await fetch('/api/committees/matching', {
@@ -2141,8 +2149,8 @@ const deleteOrganization = async (orgCode, orgName) => {
     }
 
     // 4. 로컬 데이터 업데이트
-    allMatchings = updatedMatchings;
-    masterOrganizations = masterOrganizations.filter(org => 
+    window.allMatchings = updatedMatchings;
+    window.masterOrganizations = window.masterOrganizations.filter(org => 
       (org.code !== orgCode && org.기관코드 !== orgCode)
     );
 
@@ -2153,7 +2161,7 @@ const deleteOrganization = async (orgCode, orgName) => {
     alert(`${orgName} 기관이 성공적으로 삭제되었습니다.`);
     
     // 7. 통계 업데이트
-    document.getElementById('total-orgs-count').textContent = masterOrganizations.length;
+    document.getElementById('total-orgs-count').textContent = window.masterOrganizations.length;
 
   } catch (error) {
     console.error('기관 삭제 중 오류:', error);

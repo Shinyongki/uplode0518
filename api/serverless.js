@@ -148,8 +148,16 @@ app.use((req, res, next) => {
 app.get('/api/sheets/schedules', async (req, res) => {
   try {
     // 구글시트 ID와 범위 설정
-    const spreadsheetId = '11eWVWRY2cTU5nat3zsTSTjvhvk-LxhistC1LmfBNvPU';
+    const spreadsheetId = process.env.SPREADSHEET_ID || '11eWVWRY2cTU5nat3zsTSTjvhvk-LxhistC1LmfBNvPU';
     const range = '방문일정!A:I'; // 방문일정 시트
+
+    console.log(`[API] /api/sheets/schedules 요청 받음, 스프레드시트 ID: ${spreadsheetId}`);
+    
+    // sheets 객체가 초기화되었는지 확인
+    if (!sheets) {
+      console.error('[API] Google Sheets API 클라이언트가 초기화되지 않았습니다.');
+      throw new Error('Google Sheets API 클라이언트가 초기화되지 않았습니다. 서비스 계정 키를 확인하세요.');
+    }
 
     // 구글시트 API 호출
     const response = await sheets.spreadsheets.values.get({
@@ -191,9 +199,67 @@ app.get('/api/sheets/schedules', async (req, res) => {
     });
   } catch (error) {
     console.error('구글시트 일정 데이터 조회 실패:', error);
+    console.error('오류 상세정보:', error.stack);
+    
+    // 정적 fallback 데이터 반환 (빈 일정 배열)
+    const fallbackData = [];
+    
     res.status(500).json({
       status: 'error',
       message: '구글시트 일정 데이터를 가져오는데 실패했습니다.',
+      error: error.message,
+      fallbackData: fallbackData
+    });
+  }
+});
+
+// 로그인 API 엔드포인트
+app.post('/auth/login', (req, res) => {
+  try {
+    const { username, password } = req.body;
+    console.log(`로그인 시도: ${username}`);
+    
+    // 간단한 인증 로직 (실제 환경에서는 보안 강화 필요)
+    if (username === '마스터' || username === 'master') {
+      // 마스터 계정 로그인
+      res.status(200).json({
+        status: 'success',
+        message: '로그인 성공',
+        token: 'master-jwt-token-' + Date.now(),
+        user: {
+          id: 'M001',
+          username: username,
+          name: '마스터 관리자',
+          role: 'master',
+          isAdmin: true
+        }
+      });
+    } else if (username && username.length > 0) {
+      // 위원 계정 로그인 (임시 로직: 실제로는 데이터베이스에서 확인 필요)
+      res.status(200).json({
+        status: 'success',
+        message: '로그인 성공',
+        token: 'committee-jwt-token-' + Date.now(),
+        user: {
+          id: 'C' + Math.floor(1000 + Math.random() * 9000),
+          username: username,
+          name: username,
+          role: 'committee',
+          isAdmin: false
+        }
+      });
+    } else {
+      res.status(401).json({
+        status: 'error',
+        message: '로그인 실패: 사용자 정보가 일치하지 않습니다.'
+      });
+    }
+  } catch (error) {
+    console.error('로그인 API 오류:', error);
+    console.error('오류 상세정보:', error.stack);
+    res.status(500).json({
+      status: 'error',
+      message: '서버 오류가 발생했습니다.',
       error: error.message
     });
   }

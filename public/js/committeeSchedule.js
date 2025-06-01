@@ -2,11 +2,19 @@
 
 console.log('[DEBUG] committeeSchedule.js 파일 로드 시작');
 
-// 전역 변수들 정의
-let allCommitteeSchedules = []; // 모든 위원 일정
-let filteredSchedules = []; // 현재 월에 필터링된 일정
-let selectedMonth = new Date().getMonth(); // 현재 월 (0-11)
-let selectedYear = new Date().getFullYear(); // 현재 연도
+// 전역 변수들 정의 (중복 선언 방지)
+if (typeof window.allCommitteeSchedules === 'undefined') {
+  window.allCommitteeSchedules = []; // 모든 위원 일정
+}
+if (typeof window.filteredSchedules === 'undefined') {
+  window.filteredSchedules = []; // 현재 월에 필터링된 일정
+}
+if (typeof window.selectedMonth === 'undefined') {
+  window.selectedMonth = new Date().getMonth(); // 현재 월 (0-11)
+}
+if (typeof window.selectedYear === 'undefined') {
+  window.selectedYear = new Date().getFullYear(); // 현재 연도
+}
 
 // 데이터 로드 상태 관리 변수
 let isLoadingMatchings = false;
@@ -386,8 +394,8 @@ window.changeMonth = function(delta) {
   }
   
   // 상태 업데이트
-  selectedMonth = newMonth;
-  selectedYear = newYear;
+  window.selectedMonth = newMonth;
+  window.selectedYear = newYear;
   
   // 표시 업데이트
   const monthDisplay = document.getElementById('current-month-display');
@@ -396,7 +404,7 @@ window.changeMonth = function(delta) {
   }
   
   // 데이터 필터링 및 렌더링
-  filterSchedulesByMonth(selectedMonth, selectedYear);
+  filterSchedulesByMonth(window.selectedMonth, window.selectedYear);
   renderCommitteeSchedules();
 };
 
@@ -577,7 +585,7 @@ async function loadCommitteeSchedules() {
           window.schedulesLoaded = true;
           
           // 현재 월에 맞게 필터링
-          filterSchedulesByMonth(selectedMonth, selectedYear);
+          filterSchedulesByMonth(window.selectedMonth, window.selectedYear);
           
           // UI 업데이트
           renderCommitteeSchedules();
@@ -595,11 +603,11 @@ async function loadCommitteeSchedules() {
     // 전역 변수에 일정 데이터가 있는지 확인
     if (window.allCommitteeSchedules && window.allCommitteeSchedules.length > 0) {
       console.log('[DEBUG] 전역 변수에서 일정 데이터 가져옴');
-      allCommitteeSchedules = window.allCommitteeSchedules;
+      window.allCommitteeSchedules = window.allCommitteeSchedules;
       schedulesLoaded = true;
       
       // 현재 월에 맞게 일정 필터링
-      filterSchedulesByMonth(selectedMonth, selectedYear);
+      filterSchedulesByMonth(window.selectedMonth, window.selectedYear);
       
       // 일정 목록 렌더링
       renderCommitteeSchedules();
@@ -686,7 +694,7 @@ async function loadCommitteeSchedules() {
         
         // 샘플 일정 데이터 생성
         const sampleSchedules = generateSampleSchedules();
-        allCommitteeSchedules = sampleSchedules;
+        window.allCommitteeSchedules = sampleSchedules;
         window.allCommitteeSchedules = sampleSchedules;
         schedulesLoaded = true;
         
@@ -694,7 +702,7 @@ async function loadCommitteeSchedules() {
         localStorage.setItem('calendar_schedules', JSON.stringify(sampleSchedules));
         
         // 현재 월에 맞게 필터링
-        filterSchedulesByMonth(selectedMonth, selectedYear);
+        filterSchedulesByMonth(window.selectedMonth, window.selectedYear);
         
         // UI 업데이트
         renderCommitteeSchedules();
@@ -728,7 +736,7 @@ async function loadCommitteeSchedules() {
       }
       
       // 일정 데이터 저장
-      allCommitteeSchedules = processedSchedules;
+      window.allCommitteeSchedules = processedSchedules;
       window.allCommitteeSchedules = processedSchedules;
       schedulesLoaded = true;
       
@@ -736,7 +744,7 @@ async function loadCommitteeSchedules() {
       localStorage.setItem('calendar_schedules', JSON.stringify(processedSchedules));
       
       // 현재 월에 맞게 일정 필터링
-      filterSchedulesByMonth(selectedMonth, selectedYear);
+      filterSchedulesByMonth(window.selectedMonth, window.selectedYear);
       
       // 일정 목록 렌더링
       renderCommitteeSchedules();
@@ -755,12 +763,12 @@ async function loadCommitteeSchedules() {
           if (parsedSchedules && parsedSchedules.length > 0) {
             console.log(`[DEBUG] 로컬 스토리지에서 ${parsedSchedules.length}개의 일정 다시 가져옴`);
             
-            allCommitteeSchedules = parsedSchedules;
+            window.allCommitteeSchedules = parsedSchedules;
             window.allCommitteeSchedules = parsedSchedules;
             schedulesLoaded = true;
             
             // 현재 월에 맞게 필터링
-            filterSchedulesByMonth(selectedMonth, selectedYear);
+            filterSchedulesByMonth(window.selectedMonth, window.selectedYear);
             
             // UI 업데이트
             renderCommitteeSchedules();
@@ -777,7 +785,7 @@ async function loadCommitteeSchedules() {
       const sampleSchedules = generateSampleSchedules();
       
       // 일정 데이터 저장
-      allCommitteeSchedules = sampleSchedules;
+      window.allCommitteeSchedules = sampleSchedules;
       window.allCommitteeSchedules = sampleSchedules;
       schedulesLoaded = true;
       
@@ -785,7 +793,7 @@ async function loadCommitteeSchedules() {
       localStorage.setItem('calendar_schedules', JSON.stringify(sampleSchedules));
       
       // 현재 월에 맞게 일정 필터링
-      filterSchedulesByMonth(selectedMonth, selectedYear);
+      filterSchedulesByMonth(window.selectedMonth, window.selectedYear);
       
       // 일정 목록 렌더링
       renderCommitteeSchedules();
@@ -794,8 +802,8 @@ async function loadCommitteeSchedules() {
     console.error('일정 데이터 로드 중 오류:', error);
     
     // 오류 발생 시 빈 배열로 초기화
-    allCommitteeSchedules = [];
-    filteredSchedules = [];
+    window.allCommitteeSchedules = [];
+    window.filteredSchedules = [];
     
     // 일정 목록 렌더링 (빈 목록)
     renderCommitteeSchedules();
@@ -806,13 +814,13 @@ async function loadCommitteeSchedules() {
 
 // 월별로 일정 필터링
 const filterSchedulesByMonth = (month, year) => {
-  selectedMonth = month;
-  selectedYear = year;
+  window.selectedMonth = month;
+  window.selectedYear = year;
   
-  console.log(`[DEBUG] 일정 필터링: ${year}년 ${month + 1}월, 총 ${allCommitteeSchedules.length}개 일정`);
+  console.log(`[DEBUG] 일정 필터링: ${year}년 ${month + 1}월, 총 ${window.allCommitteeSchedules.length}개 일정`);
   
   // 날짜 형식 처리 개선
-  const filteredSchedules = allCommitteeSchedules.filter(schedule => {
+  window.filteredSchedules = window.allCommitteeSchedules.filter(schedule => {
     try {
       // 날짜 값이 없는 경우 건너뛰
       if (!schedule.date && !schedule.visitDate) {
@@ -862,9 +870,8 @@ const filterSchedulesByMonth = (month, year) => {
   });
   
   // 필터링된 일정을 전역 변수에 저장
-  window.filteredSchedules = filteredSchedules;
   
-  console.log(`[DEBUG] 필터링 결과: ${filteredSchedules.length}개 일정 해당`);
+  console.log(`[DEBUG] 필터링 결과: ${window.filteredSchedules.length}개 일정 해당`);
   
   // 위원 기준으로 그룹화
   const groupedSchedules = {};
@@ -872,7 +879,7 @@ const filterSchedulesByMonth = (month, year) => {
   // 위원별 일정 그룹화 및 색상 지정
   window.committeeGroups = {};
   
-  filteredSchedules.forEach(schedule => {
+  window.filteredSchedules.forEach(schedule => {
     const committeeName = schedule.committeeName || '미지정';
     
     // 그룹화된 일정 객체 초기화
@@ -933,7 +940,7 @@ const renderCommitteeSchedules = () => {
           // 전역 변수에 데이터 저장
           window.allCommitteeSchedules = parsedSchedules;
           // 현재 월 필터링
-          filterSchedulesByMonth(selectedMonth, selectedYear);
+          filterSchedulesByMonth(window.selectedMonth, window.selectedYear);
         }
       }
     } catch (e) {
@@ -949,7 +956,7 @@ const renderCommitteeSchedules = () => {
     console.log('[DEBUG] 필터링된 일정 데이터가 없습니다. 전체 일정 데이터:', window.allCommitteeSchedules);
     scheduleContainer.innerHTML = `
       <div class="bg-blue-50 p-4 rounded-lg text-center">
-        <p class="text-blue-600">${selectedYear}년 ${selectedMonth + 1}월에 예정된 일정이 없습니다.</p>
+        <p class="text-blue-600">${window.selectedYear}년 ${window.selectedMonth + 1}월에 예정된 일정이 없습니다.</p>
       </div>
     `;
     return;
@@ -970,13 +977,13 @@ const renderCommitteeSchedules = () => {
   if (!window.filteredSchedules || window.filteredSchedules.length === 0) {
     console.log('[DEBUG] 필터링된 일정 데이터가 없습니다. 필터링을 다시 시도합니다.');
     // 필터링 다시 시도
-    filterSchedulesByMonth(selectedMonth, selectedYear);
+    filterSchedulesByMonth(window.selectedMonth, window.selectedYear);
     
     // 여전히 없는 경우
     if (!window.filteredSchedules || window.filteredSchedules.length === 0) {
       scheduleContainer.innerHTML = `
         <div class="bg-blue-50 p-4 rounded-lg text-center">
-          <p class="text-blue-600">${selectedYear}년 ${selectedMonth + 1}월에 예정된 일정이 없습니다.</p>
+          <p class="text-blue-600">${window.selectedYear}년 ${window.selectedMonth + 1}월에 예정된 일정이 없습니다.</p>
         </div>
       `;
       return;
@@ -1011,7 +1018,7 @@ const renderCommitteeSchedules = () => {
   if (committeeCount === 0) {
     scheduleContainer.innerHTML = `
       <div class="bg-blue-50 p-4 rounded-lg text-center">
-        <p class="text-blue-600">${selectedYear}년 ${selectedMonth + 1}월에 예정된 일정이 없습니다.</p>
+        <p class="text-blue-600">${window.selectedYear}년 ${window.selectedMonth + 1}월에 예정된 일정이 없습니다.</p>
       </div>
     `;
     return;
@@ -1376,12 +1383,12 @@ document.addEventListener('masterDashboardDataUpdated', (event) => {
       console.log(`ID가 ${scheduleData.id}인 일정 삭제 처리`);
       
       // 로컬 데이터에서 해당 일정 삭제
-      allCommitteeSchedules = allCommitteeSchedules.filter(schedule => 
+      window.allCommitteeSchedules = window.allCommitteeSchedules.filter(schedule => 
         schedule.id !== scheduleData.id
       );
       
       // 필터링된 일정도 업데이트
-      filterSchedulesByMonth(selectedMonth, selectedYear);
+      filterSchedulesByMonth(window.selectedMonth, window.selectedYear);
       
       // UI 즉시 업데이트
       renderCommitteeSchedules();
@@ -1393,7 +1400,7 @@ document.addEventListener('masterDashboardDataUpdated', (event) => {
       window.allCommitteeSchedules = scheduleData.schedules;
       
       // 필터링된 일정도 업데이트
-      filterSchedulesByMonth(selectedMonth, selectedYear);
+      filterSchedulesByMonth(window.selectedMonth, window.selectedYear);
       
       // UI 즉시 업데이트
       renderCommitteeSchedules();
