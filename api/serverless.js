@@ -428,6 +428,33 @@ app.post('/auth/login', (req, res) => {
   }
 });
 
+// 위원별 담당 기관 정보 API 엔드포인트
+app.get('/api/sheets/committee-orgs', async (req, res) => {
+  try {
+    console.log('[API] /api/sheets/committee-orgs 요청 받음');
+    
+    // committee-orgs.js 파일에서 처리 로직 가져오기
+    const committeeOrgsHandler = require('./committee-orgs');
+    
+    // 요청 처리
+    return committeeOrgsHandler(req, res);
+  } catch (error) {
+    console.error('[API] /api/sheets/committee-orgs 오류:', error);
+    console.error('[API] 오류 상세정보:', error.stack);
+    
+    // 오류 발생 시 500 오류 대신 200 응답과 빈 배열 반환
+    return res.status(200).json({
+      status: 'success',
+      message: '오류가 발생하여 기본 데이터를 사용합니다.',
+      data: [],
+      meta: {
+        source: 'error-fallback',
+        error: error.message
+      }
+    });
+  }
+});
+
 // 위원별 담당 기관 매칭 정보 API 엔드포인트
 app.get('/api/committees/matching', async (req, res) => {
   try {
