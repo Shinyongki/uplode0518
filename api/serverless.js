@@ -230,9 +230,8 @@ app.get('/api/organizations', async (req, res) => {
     const organizations = [];
     
     // 구글 시트에서 기관 목록 가져오기
-    const SheetsHelper = require('./sheets-helper');
-    const sheetsHelper = new SheetsHelper();
-    await sheetsHelper.authorize();
+    const sheetsHelper = require('./sheets-helper');
+    // sheetsHelper는 이미 객체이므로 new를 사용하지 않음
     
     console.log('[API] 구글 시트에서 데이터 로드 시도...');
     
