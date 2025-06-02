@@ -148,7 +148,7 @@ const loadOrganizationsFromSheet = async () => {
     try {
       // 1. 직접 구글 시트에서 데이터 가져오기 시도
       console.log(`구글 시트에서 ${committeeName} 위원 담당 기관 데이터 가져오기 시도`);
-      const sheetResponse = await fetch(`/api/sheets/committee-orgs?committeeName=${encodeURIComponent(committeeName)}&sheet=위원별_담당기관`, {
+      const sheetResponse = await fetch(`/api/sheets-committee-orgs?committeeName=${encodeURIComponent(committeeName)}&sheet=위원별_담당기관`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -208,8 +208,8 @@ const loadOrganizationsFromSheet = async () => {
       
       try {
         // 2. 위원별 담당 기관 API 호출 시도
-        console.log(`위원별 담당 기관 API 호출: /api/sheets/committee-orgs?committeeName=${committeeName}`);
-        const response = await fetch(`/api/sheets/committee-orgs?committeeName=${encodeURIComponent(committeeName)}`, {
+        console.log(`위원별 담당 기관 API 호출: /api/sheets-committee-orgs?committeeName=${committeeName}`);
+        const response = await fetch(`/api/sheets-committee-orgs?committeeName=${encodeURIComponent(committeeName)}`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json'
@@ -262,8 +262,8 @@ const loadOrganizationsFromSheet = async () => {
         
         try {
           // 대체 API 엔드포인트 호출
-          console.log(`대체 API 호출: /api/sheets/committee-orgs?committeeName=${committeeName}`);
-          const altResponse = await fetch(`/api/sheets/committee-orgs?committeeName=${encodeURIComponent(committeeName)}`, {
+          console.log(`대체 API 호출: /api/sheets-committee-orgs?committeeName=${committeeName}`);
+          const altResponse = await fetch(`/api/sheets-committee-orgs?committeeName=${encodeURIComponent(committeeName)}`, {
             method: 'GET',
             headers: {
               'Content-Type': 'application/json'
