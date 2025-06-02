@@ -163,7 +163,18 @@ console.log('기본 라우트 설정 완료');
 // SPA 지원을 위한 기본 경로 - API 경로가 아닌 모든 요청은 index.html로 제공
 app.use((req, res, next) => {
   if (!req.path.startsWith('/api') && !req.path.startsWith('/auth')) {
-    return res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    try {
+      const indexPath = path.join(__dirname, '..', 'public', 'index.html');
+      console.log(`정적 파일 제공 시도: ${indexPath}`);
+      return res.sendFile(indexPath);
+    } catch (error) {
+      console.error('정적 파일 제공 중 오류:', error);
+      return res.status(500).json({
+        status: 'error',
+        message: '정적 파일을 제공할 수 없습니다.',
+        path: req.path
+      });
+    }
   }
   next();
 });
