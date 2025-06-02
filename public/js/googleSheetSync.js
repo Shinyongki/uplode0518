@@ -5,7 +5,8 @@
 (function() {
   // 이미 전역 변수로 존재하는지 확인
   if (typeof window.SHEETS_API_ENDPOINT === 'undefined') {
-    window.SHEETS_API_ENDPOINT = '/api/sheets';
+    // Vercel 라우팅 규칙에 맞게 수정
+    window.SHEETS_API_ENDPOINT = '/api';
   }
 })();
 
@@ -14,7 +15,7 @@ async function fetchSchedulesFromSheet() {
   try {
     console.log('구글 시트에서 일정 데이터 가져오기 시작');
     
-    const response = await fetch(`${SHEETS_API_ENDPOINT}/schedules`, {
+    const response = await fetch(`${SHEETS_API_ENDPOINT}/sheets-schedules`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json'
@@ -46,7 +47,7 @@ async function saveSchedulesToSheet(schedules, sheetName = '방문일정') {
   try {
     console.log(`구글 시트 '${sheetName}'에 ${schedules.length}개의 일정 데이터 저장 시작`);
     
-    const response = await fetch(`${SHEETS_API_ENDPOINT}/schedules`, {
+    const response = await fetch(`${SHEETS_API_ENDPOINT}/sheets-schedules`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -225,7 +226,7 @@ async function saveSchedulesToSheet(schedules) {
   try {
     console.log('구글 시트에 일정 데이터 저장 시작');
     
-    const response = await fetch(`${SHEETS_API_ENDPOINT}/schedules`, {
+    const response = await fetch(`${SHEETS_API_ENDPOINT}/sheets-schedules`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
