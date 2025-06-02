@@ -35,25 +35,29 @@ if (typeof window.allMatchings === 'undefined') {
 }
 
 // 특별 기관 목록 (committeeSchedule.js와 동일하게 유지)
-const specialOrganizations = [
-  '진주노인통합지원센터',
-  '함안군재가노인통합지원센터',
-  '창녕군새누리노인통합지원센터',
-  '효능원노인통합지원센터',
-  '진해서부노인종합복지관'
-];
+// 전역 변수로 중복 선언 방지
+if (typeof window.specialOrganizations === 'undefined') {
+  window.specialOrganizations = [
+    '진주노인통합지원센터',
+    '함안군재가노인통합지원센터',
+    '창녕군새누리노인통합지원센터',
+    '효능원노인통합지원센터',
+    '진해서부노인종합복지관'
+  ];
+}
+// 로컬 참조를 위해 window 객체의 속성 직접 사용
 
 // 특별 기관 확인 함수
 const isSpecialOrganization = (orgName) => {
   if (!orgName) return false;
   
   // 정확한 일치 확인
-  if (specialOrganizations.includes(orgName.trim())) {
+  if (window.specialOrganizations.includes(orgName.trim())) {
     return true;
   }
   
   // 부분 일치 확인 (더 유연한 매칭)
-  for (const specialOrg of specialOrganizations) {
+  for (const specialOrg of window.specialOrganizations) {
     if (orgName.includes(specialOrg) || specialOrg.includes(orgName)) {
       return true;
     }
