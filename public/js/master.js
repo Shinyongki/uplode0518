@@ -47,24 +47,26 @@ if (typeof window.specialOrganizations === 'undefined') {
 }
 // 로컬 참조를 위해 window 객체의 속성 직접 사용
 
-// 특별 기관 확인 함수
-const isSpecialOrganization = (orgName) => {
-  if (!orgName) return false;
-  
-  // 정확한 일치 확인
-  if (window.specialOrganizations.includes(orgName.trim())) {
-    return true;
-  }
-  
-  // 부분 일치 확인 (더 유연한 매칭)
-  for (const specialOrg of window.specialOrganizations) {
-    if (orgName.includes(specialOrg) || specialOrg.includes(orgName)) {
+// 특별 기관 확인 함수 (중복 선언 방지를 위해 조건부 추가)
+if (typeof window.isSpecialOrganization !== 'function') {
+  window.isSpecialOrganization = (orgName) => {
+    if (!orgName) return false;
+    
+    // 정확한 일치 확인
+    if (window.specialOrganizations.includes(orgName.trim())) {
       return true;
     }
-  }
-  
-  return false;
-};
+    
+    // 부분 일치 확인 (더 유연한 매칭)
+    for (const specialOrg of window.specialOrganizations) {
+      if (orgName.includes(specialOrg) || specialOrg.includes(orgName)) {
+        return true;
+      }
+    }
+    
+    return false;
+  };
+}
 
 // 데이터 로드 상태 관리 변수
 let isLoadingMasterData = false;
@@ -1283,7 +1285,7 @@ window.updateMatchingTable = () => {
       
       // 특별 기관 여부 확인
       const orgName = org.name || org.기관명 || '';
-      const isSpecial = isSpecialOrganization(orgName);
+      const isSpecial = window.isSpecialOrganization(orgName);
       
       // 특별 기관인 경우 배경색 변경
       const rowClass = isSpecial ? 'hover:bg-yellow-50 bg-yellow-100' : 'hover:bg-gray-50';

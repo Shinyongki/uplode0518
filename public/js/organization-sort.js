@@ -2,13 +2,17 @@
 console.log('[DEBUG] organization-sort.js 로드됨');
 
 // 특별 관리 기관 목록 (committeeSchedule.js와 동일하게 유지)
-const specialOrganizations = [
-  '진주노인통합지원센터',
-  '함안군재가노인통합지원센터',
-  '창녕군새누리노인통합지원센터',
-  '효능원노인통합지원센터',
-  '진해서부노인종합복지관'
-];
+// 전역 변수로 중복 선언 방지
+if (typeof window.specialOrganizations === 'undefined') {
+  window.specialOrganizations = [
+    '진주노인통합지원센터',
+    '함안군재가노인통합지원센터',
+    '창녕군새누리노인통합지원센터',
+    '효능원노인통합지원센터',
+    '진해서부노인종합복지관'
+  ];
+}
+// 전역 변수 직접 참조 - 중복 선언 방지
 
 // 페이지 로드 완료 후 실행
 document.addEventListener('DOMContentLoaded', () => {
@@ -63,8 +67,8 @@ function organizeSchedulesByOrganization() {
     
     // 기관 정렬: 특별 관리 기관 먼저, 나머지는 가나다순
     const sortedOrgNames = Object.keys(orgGroups).sort((a, b) => {
-      const isSpecialA = specialOrganizations.some(special => a.includes(special));
-      const isSpecialB = specialOrganizations.some(special => b.includes(special));
+      const isSpecialA = window.specialOrganizations.some(special => a.includes(special));
+      const isSpecialB = window.specialOrganizations.some(special => b.includes(special));
       
       if (isSpecialA && !isSpecialB) return -1;
       if (!isSpecialA && isSpecialB) return 1;
