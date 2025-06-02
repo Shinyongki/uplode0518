@@ -30,7 +30,21 @@ try {
     try {
       console.log('환경 변수에서 직접 서비스 계정 키 사용 시도');
       // Vercel 환경에 최적화: 파일 시스템 사용 대신 직접 JSON 파싱
-      const credentials = JSON.parse(process.env.SERVICE_ACCOUNT_KEY);
+      let credentials;
+      try {
+        credentials = JSON.parse(process.env.SERVICE_ACCOUNT_KEY);
+      } catch (jsonError) {
+        console.error('SERVICE_ACCOUNT_KEY JSON 파싱 오류:', jsonError);
+        console.log('SERVICE_ACCOUNT_KEY 값이 유효한 JSON 형식이 아닙니다.');
+        // 오류 발생 시 기본 데이터 사용
+        throw new Error('Invalid SERVICE_ACCOUNT_KEY format');
+      }
+      
+      // 필수 필드 확인
+      if (!credentials.client_email || !credentials.private_key) {
+        console.error('SERVICE_ACCOUNT_KEY에 필수 필드가 누락되었습니다.');
+        throw new Error('Missing required fields in SERVICE_ACCOUNT_KEY');
+      }
       
       // 구글시트 인증 설정
       authGoogle = new google.auth.GoogleAuth({
@@ -118,20 +132,30 @@ app.use((req, res, next) => {
 
 // 라우트 설정
 console.log('API 라우트 설정 시작...');
+
+// API 라우트 정의
+const apiRoutes = express.Router();
+
 // API 라우트: /api/* 경로 처리 
 app.use('/api', apiRoutes);
 
 // 구글 시트 직접 테스트 라우트 추가
-const directTestRouter = require('./api/direct-test');
+const directTestRouter = require('./direct-test');
 app.use('/api', directTestRouter);
 console.log('API 라우트 설정 완료');
 
 console.log('인증 라우트 설정 시작...');
+// 인증 라우트 정의
+const authRoutes = express.Router();
+
 // 인증 라우트: /auth/* 경로 처리
 app.use('/auth', authRoutes);
 console.log('인증 라우트 설정 완료');
 
 console.log('기본 라우트 설정 시작...');
+// 기본 페이지 라우트 정의
+const indexRoutes = express.Router();
+
 // 기본 페이지 라우트: 위의 모든 라우트에 해당하지 않는 경로 처리
 app.use('/', indexRoutes);
 console.log('기본 라우트 설정 완료');
@@ -602,10 +626,10 @@ app.get('/api/committees/matching', async (req, res) => {
     console.log('[API] /api/committees/matching 요청 받음');
     
     // committees-matching.js 파일에서 처리 로직 가져오기
-    const committeesMatchingHandler = require('./committees-matching');
+    const committeesMatching = require('./committees-matching');
     
     // 요청 처리
-    return committeesMatchingHandler(req, res);
+    return committeesMatching.handler(req, res);
   } catch (error) {
     console.error('[API] /api/committees/matching 오류:', error);
     console.error('[API] 오류 상세정보:', error.stack);
@@ -1027,8 +1051,7 @@ app.delete('/api/organizations-delete', async (req, res) => {
   }
 });
 
-// 위원별 담당기관 매칭 데이터를 가져오는 API 엔드포인트
-app.get('/api/sheets/committee-orgs', require('./api/committee-orgs'));
+// 이 엔드포인트는 위에서 이미 정의되었으므로 삭제함
 
 // 일정 데이터 저장소 - 서버 메모리에 저장
 // 실제 프로덕션에서는 데이터베이스를 사용해야 함
