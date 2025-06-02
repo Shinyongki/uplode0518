@@ -69,9 +69,15 @@ if (typeof window.isSpecialOrganization !== 'function') {
 }
 
 // 데이터 로드 상태 관리 변수
-let isLoadingMasterData = false;
-let isRefreshingMatchings = false;
-let masterDataLoaded = false;
+if (typeof window.isLoadingMasterData === 'undefined') {
+  window.isLoadingMasterData = false;
+}
+if (typeof window.isRefreshingMatchings === 'undefined') {
+  window.isRefreshingMatchings = false;
+}
+if (typeof window.masterDataLoaded === 'undefined') {
+  window.masterDataLoaded = false;
+}
 
 // 마스터 페이지인지 확인
 window.isMasterDashboard = true;
@@ -394,7 +400,7 @@ window.loadMasterDashboardData = async () => {
   console.log('마스터 대시보드 데이터 로드 시작');
   
   // 이미 로드 중인 경우 중복 호출 방지
-  if (isLoadingMasterData) {
+  if (window.isLoadingMasterData) {
     console.log('마스터 대시보드 데이터가 이미 로드 중입니다.');
     return;
   }
@@ -404,7 +410,7 @@ window.loadMasterDashboardData = async () => {
   console.log('마스터 대시보드 데이터 새로고침 시작');
   
   // 로드 상태 설정
-  isLoadingMasterData = true;
+  window.isLoadingMasterData = true;
   
   // 구글 시트에서 일정 데이터 동기화 시도
   if (typeof window.syncSchedulesWithSheet === 'function') {
@@ -810,7 +816,29 @@ window.loadMasterDashboardData = async () => {
             window.schedulesLoaded = false;
           }
           
-          window.initializeCommitteeSchedulesView();
+          // 객체와 속성이 존재하는지 안전하게 확인하는 함수
+          const safeObjectAccess = (obj, path) => {
+            if (!obj) return false;
+            const props = path.split('.');
+            let current = obj;
+            
+            for (const prop of props) {
+              if (current[prop] === undefined || current[prop] === null) {
+                console.warn(`[SAFETY CHECK] Object path '${path}' has undefined property: '${prop}'`);
+                return false;
+              }
+              current = current[prop];
+            }
+            return true;
+          };
+          
+          // 함수 실행 전 필요한 객체들이 모두 초기화되어 있는지 확인
+          if (safeObjectAccess(window, 'initializeCommitteeSchedulesView')) {
+            console.log('[DEBUG] initializeCommitteeSchedulesView 함수 호출 안전성 확인 완료');
+            window.initializeCommitteeSchedulesView();
+          } else {
+            console.error('[DEBUG] initializeCommitteeSchedulesView 함수 또는 의존성이 초기화되지 않았습니다.');
+          }
           console.log('[DEBUG] 담당자별 기관방문일정 뷰 초기화 성공');
           
           // 초기화 완료 표시
@@ -841,8 +869,8 @@ window.loadMasterDashboardData = async () => {
     initScheduleView();
     
     // 데이터 로드 완료 상태 설정
-    masterDataLoaded = true;
-    isLoadingMasterData = false;
+    window.masterDataLoaded = true;
+    window.isLoadingMasterData = false;
   } catch (error) {
     // 오류 정보 상세히 기록
     console.error('대시보드 데이터 로드 중 오류:', {
@@ -863,7 +891,7 @@ window.loadMasterDashboardData = async () => {
     window.monitoringResults = [];
     
     // 오류 발생 시에도 로드 상태 초기화
-    isLoadingMasterData = false;
+    window.isLoadingMasterData = false;
   }
 };
 
