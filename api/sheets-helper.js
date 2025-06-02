@@ -4,13 +4,13 @@ const fs = require('fs');
 const path = require('path');
 
 // 환경 변수 설정
-const USE_SERVICE_ACCOUNT = true; // 항상 서비스 계정 사용
+const USE_SERVICE_ACCOUNT = process.env.USE_SERVICE_ACCOUNT === 'true' || true; // 항상 서비스 계정 사용
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID || '11eWVWRY2cTU5nat3zsTSTjvhvk-LxhistC1LmfBNvPU';
 
 // 서비스 계정 키 가져오기 (환경변수 또는 파일)
-let serviceAccountKeyPath = process.env.SERVICE_ACCOUNT_KEY_PATH || path.join(__dirname, '..', 'service-account.json');
+const SERVICE_ACCOUNT_KEY_PATH = process.env.SERVICE_ACCOUNT_KEY_PATH || path.join(__dirname, '..', 'service-account.json');
 const hasServiceAccountKeyEnv = !!process.env.SERVICE_ACCOUNT_KEY;
-const hasServiceAccountKeyFile = fs.existsSync(serviceAccountKeyPath);
+const hasServiceAccountKeyFile = fs.existsSync(SERVICE_ACCOUNT_KEY_PATH);
 
 console.log('[sheets-helper] 스프레드시트 ID:', SPREADSHEET_ID);
 console.log('[sheets-helper] 서비스 계정 키 환경변수 존재 여부:', hasServiceAccountKeyEnv);
@@ -37,12 +37,25 @@ async function getAuthClient() {
         } catch (jsonError) {
           console.log('일반 JSON 파싱 실패, 특수 문자 처리 시도...');
           // 특수 문자나 줄바꿈이 있을 수 있으므로 추가 처리
-          const cleanedJson = process.env.SERVICE_ACCOUNT_KEY
-            .replace(/\\n/g, '')
-            .replace(/\n/g, '')
-            .replace(/\r/g, '')
-            .trim();
+          let cleanedJson = process.env.SERVICE_ACCOUNT_KEY;
+          
+          // 줄바꿈 문자 처리
+          cleanedJson = cleanedJson.replace(/\\n/g, '\n');
+          
+          // 따옴표 이스케이프 처리
+          if (cleanedJson.startsWith('"') && cleanedJson.endsWith('"')) {
+            cleanedJson = cleanedJson.slice(1, -1);
+          }
+          
           serviceAccountKey = JSON.parse(cleanedJson);
+        }
+        
+        // 필수 필드 검증
+        if (!serviceAccountKey.client_email || !serviceAccountKey.private_key) {
+          console.error('[sheets-helper] SERVICE_ACCOUNT_KEY에 필수 필드가 누락되었습니다.');
+          console.error('client_email 존재:', !!serviceAccountKey.client_email);
+          console.error('private_key 존재:', !!serviceAccountKey.private_key);
+          throw new Error('Missing required fields in SERVICE_ACCOUNT_KEY');
         }
         
         // 인증 객체 생성
@@ -50,9 +63,10 @@ async function getAuthClient() {
           credentials: serviceAccountKey,
           scopes: ['https://www.googleapis.com/auth/spreadsheets']
         });
-        console.log('환경 변수에서 서비스 계정 키 가져오기 성공');
+        console.log('[sheets-helper] 환경 변수에서 서비스 계정 키 가져오기 성공');
+        console.log('[sheets-helper] 클라이언트 이메일:', serviceAccountKey.client_email);
       } catch (parseError) {
-        console.error('서비스 계정 키 JSON 파싱 오류:', parseError);
+        console.error('[sheets-helper] 서비스 계정 키 JSON 파싱 오류:', parseError);
         throw new Error('서비스 계정 키 파싱 오류: ' + parseError.message);
       }
     } else if (hasServiceAccountKeyFile) {
@@ -190,21 +204,42 @@ async function readSheet(sheetName, range = '') {
     console.log(`[sheets-helper] ${sheetName} 시트 데이터 읽기 시도`);
     
     // 인증 클라이언트 가져오기
-    const authClient = await getAuthClient();
+    let authClient;
+    try {
+      authClient = await getAuthClient();
+    } catch (authError) {
+      console.error(`[sheets-helper] 인증 클라이언트 가져오기 오류:`, authError);
+      throw new Error(`인증 오류: ${authError.message}`);
+    }
     
     // 구글 시트 API 초기화
     const sheets = google.sheets({ version: 'v4', auth: authClient });
     
+    // 스프레드시트 ID 확인
+    if (!SPREADSHEET_ID) {
+      throw new Error('스프레드시트 ID가 설정되지 않았습니다.');
+    }
+    console.log(`[sheets-helper] 사용 중인 스프레드시트 ID: ${SPREADSHEET_ID}`);
+    
     // 시트 데이터 가져오기
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: range ? `${sheetName}!${range}` : sheetName
-    });
-    
-    const rows = response.data.values || [];
-    console.log(`[sheets-helper] ${sheetName} 시트에서 ${rows.length}개 행 데이터 읽기 성공`);
-    
-    return rows;
+    try {
+      const response = await sheets.spreadsheets.values.get({
+        spreadsheetId: SPREADSHEET_ID,
+        range: range ? `${sheetName}!${range}` : sheetName
+      });
+      
+      const rows = response.data.values || [];
+      console.log(`[sheets-helper] ${sheetName} 시트에서 ${rows.length}개 행 데이터 읽기 성공`);
+      
+      return rows;
+    } catch (apiError) {
+      console.error(`[sheets-helper] 구글 시트 API 호출 오류:`, apiError);
+      if (apiError.response) {
+        console.error('응답 상태:', apiError.response.status);
+        console.error('응답 데이터:', apiError.response.data);
+      }
+      throw new Error(`구글 시트 API 오류: ${apiError.message}`);
+    }
   } catch (error) {
     console.error(`[sheets-helper] ${sheetName} 시트 데이터 읽기 오류:`, error);
     throw error;
@@ -267,8 +302,35 @@ function getServiceAccountFromEnv() {
     if (process.env.SERVICE_ACCOUNT_KEY) {
       console.log('[sheets-helper] 환경 변수에서 서비스 계정 키 로드 시도');
       try {
-        const serviceAccountKey = JSON.parse(process.env.SERVICE_ACCOUNT_KEY);
+        let serviceAccountKey;
+        try {
+          serviceAccountKey = JSON.parse(process.env.SERVICE_ACCOUNT_KEY);
+        } catch (jsonError) {
+          console.log('[sheets-helper] 일반 JSON 파싱 실패, 특수 문자 처리 시도...');
+          // 특수 문자나 줄바꿈이 있을 수 있으므로 추가 처리
+          let cleanedJson = process.env.SERVICE_ACCOUNT_KEY;
+          
+          // 줄바꿈 문자 처리
+          cleanedJson = cleanedJson.replace(/\\n/g, '\n');
+          
+          // 따옴표 이스케이프 처리
+          if (cleanedJson.startsWith('"') && cleanedJson.endsWith('"')) {
+            cleanedJson = cleanedJson.slice(1, -1);
+          }
+          
+          serviceAccountKey = JSON.parse(cleanedJson);
+        }
+        
+        // 필수 필드 검증
+        if (!serviceAccountKey.client_email || !serviceAccountKey.private_key) {
+          console.error('[sheets-helper] SERVICE_ACCOUNT_KEY에 필수 필드가 누락되었습니다.');
+          console.error('client_email 존재:', !!serviceAccountKey.client_email);
+          console.error('private_key 존재:', !!serviceAccountKey.private_key);
+          throw new Error('Missing required fields in SERVICE_ACCOUNT_KEY');
+        }
+        
         console.log('[sheets-helper] 환경 변수에서 서비스 계정 키 로드 성공');
+        console.log('[sheets-helper] 클라이언트 이메일:', serviceAccountKey.client_email);
         return serviceAccountKey;
       } catch (parseError) {
         console.error('[sheets-helper] 환경 변수의 서비스 계정 키 파싱 오류:', parseError);
