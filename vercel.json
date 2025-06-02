@@ -8,12 +8,32 @@
         "nodeVersion": "18.x"
       }
     },
+    { 
+      "src": "api/sheets-schedules.js", 
+      "use": "@vercel/node",
+      "config": {
+        "nodeVersion": "18.x"
+      }
+    },
+    { 
+      "src": "api/sheets-committee-orgs.js", 
+      "use": "@vercel/node",
+      "config": {
+        "nodeVersion": "18.x"
+      }
+    },
     { "src": "public/**/*", "use": "@vercel/static" }
   ],
   "routes": [
+    { "src": "/favicon.ico", "dest": "public/favicon.ico" },
+    { "src": "/api/sheets/schedules", "dest": "api/sheets-schedules.js" },
+    { "src": "/api/sheets/committee-orgs", "dest": "api/sheets-committee-orgs.js" },
     { "src": "/api/(.*)", "dest": "api/serverless.js" },
     { "src": "/auth/(.*)", "dest": "api/serverless.js" },
-    { "src": "/(.*)", "dest": "public/$1" }
+    { "src": "/js/(.*)", "dest": "public/js/$1" },
+    { "src": "/css/(.*)", "dest": "public/css/$1" },
+    { "src": "/images/(.*)", "dest": "public/images/$1" },
+    { "src": "/(.*)", "dest": "api/serverless.js" }
   ],
   "env": {
     "USE_SERVICE_ACCOUNT": "true",
